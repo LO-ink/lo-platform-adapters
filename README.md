@@ -20,3 +20,5 @@ npm run format:check
 See [`docs/0.18.0-inventory.md`](docs/0.18.0-inventory.md) for the migration inventory and explicit gaps.
 
 [`compatibility/bot-frameworks`](compatibility/bot-frameworks) tests pinned Telegraf and grammY packages against a loopback HTTP server, including multipart uploads, file downloads, and typed errors. It does not imply full server API coverage.
+
+[`compatibility/aiogram`](compatibility/aiogram) covers the same HTTP boundary with the Python aiogram client and includes custom server configuration.
