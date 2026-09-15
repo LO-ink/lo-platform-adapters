@@ -1,0 +1,43 @@
+{
+  "name": "@lo/bot-http-lo",
+  "version": "0.1.0",
+  "description": "LO HTTP transport for @lo/bot-sdk",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@lo/bot-sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "@lo/bot-sdk": "file:vendor/lo-bot-sdk-0.1.0.tgz",
+    "typescript": "5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lo-ink/lo-platform-adapters.git",
+    "directory": "packages/bot-http-lo"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

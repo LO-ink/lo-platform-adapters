@@ -1,0 +1,21 @@
+{
+  "name": "lo-platform-adapters-workspace",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run check --workspaces --if-present && tsc -p examples/tsconfig.json",
+    "format:check": "prettier --check .",
+    "test:package": "node scripts/test-packages.mjs",
+    "test": "npm run build && node --test test/*.test.mjs && npm test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@lo/miniapp-sdk": "file:vendor/lo-miniapp-sdk-0.19.0.tgz",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3"
+  }
+}

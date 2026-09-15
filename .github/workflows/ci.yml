@@ -1,0 +1,37 @@
+name: Adapter checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+      - run: npm run format:check
+      - run: npm run test:package
+      - run: npm pack --dry-run --workspace @lo/adapter-webapp-compat
+      - run: npm pack --dry-run --workspace @lo/adapter-lo
+      - run: npm pack --dry-run --workspace @lo/adapter-telegram
+      - run: npm pack --dry-run --workspace @lo/bot-http-lo
+      - run: npm pack --dry-run --workspace @lo/adapter-vk
+  bot-frameworks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: compatibility/bot-frameworks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: compatibility/bot-frameworks/package-lock.json
+      - run: npm ci
+      - run: npm test
