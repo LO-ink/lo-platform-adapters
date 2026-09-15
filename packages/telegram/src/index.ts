@@ -195,13 +195,20 @@ export function createAdapter(
       },
       async requestChat(id, options = {}) {
         requireVersion("9.6", "requestChat");
-        if (typeof id !== "string" || !id.length || id.length > 128) {
+        if (typeof id !== "string" || !id.length) {
           return Promise.reject(new TypeError("Invalid prepared chat ID"));
         }
         return withHostCallback<boolean>((finish) => {
-          webApp.requestChat(id, (sent: unknown) =>
-            finish(null, sent === true),
-          );
+          webApp.requestChat(id, (sent: unknown) => {
+            if (typeof sent === "boolean") finish(null, sent);
+            else
+              finish(
+                new MiniAppError(
+                  "invalid-response",
+                  "Invalid chat request result",
+                ),
+              );
+          });
         }, options);
       },
       async setEmojiStatus(id, options = {}) {
@@ -212,13 +219,27 @@ export function createAdapter(
         ) {
           return Promise.reject(new TypeError("Invalid emoji status ID"));
         }
-        const duration = options.duration ?? 3_600;
-        if (!Number.isInteger(duration) || duration <= 0) {
+        const duration = options.duration;
+        if (
+          duration !== undefined &&
+          (!Number.isSafeInteger(duration) || duration < 0)
+        ) {
           return Promise.reject(new TypeError("Invalid emoji status duration"));
         }
         return withHostCallback<boolean>((finish) => {
-          webApp.setEmojiStatus(id, { duration }, (set: unknown) =>
-            finish(null, set === true),
+          webApp.setEmojiStatus(
+            id,
+            duration === undefined ? {} : { duration },
+            (set: unknown) => {
+              if (typeof set === "boolean") finish(null, set);
+              else
+                finish(
+                  new MiniAppError(
+                    "invalid-response",
+                    "Invalid emoji status result",
+                  ),
+                );
+            },
           );
         }, options);
       },

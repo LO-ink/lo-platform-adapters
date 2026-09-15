@@ -108,6 +108,55 @@ test("Telegram-only extensions stay outside the neutral operation map", async ()
   adapter.telegram.openTelegramLink("https://t.me/example");
 });
 
+test("Telegram prepared IDs stay opaque and status duration preserves host defaults", async () => {
+  const chatIds = [];
+  const statusParams = [];
+  let result = true;
+  const { telegram } = createTelegramAdapter({
+    Telegram: {
+      WebApp: {
+        initData: "signed",
+        version: "9.6",
+        requestChat(id, callback) {
+          chatIds.push(id);
+          callback(result);
+        },
+        setEmojiStatus(_id, params, callback) {
+          statusParams.push(params);
+          callback(result);
+        },
+      },
+    },
+  });
+  const preparedId = "opaque-" + "x".repeat(512);
+  assert.equal(await telegram.requestChat(preparedId), true);
+  assert.deepEqual(chatIds, [preparedId]);
+  assert.equal(await telegram.setEmojiStatus("123"), true);
+  assert.equal(await telegram.setEmojiStatus("123", { duration: 0 }), true);
+  assert.equal(await telegram.setEmojiStatus("123", { duration: 3600 }), true);
+  assert.deepEqual(statusParams, [{}, { duration: 0 }, { duration: 3600 }]);
+  for (const duration of [-1, 0.5, NaN, Infinity, null]) {
+    await assert.rejects(
+      telegram.setEmojiStatus("123", { duration }),
+      TypeError,
+    );
+  }
+  assert.equal(statusParams.length, 3);
+  await assert.rejects(telegram.requestChat(""), TypeError);
+  assert.equal(chatIds.length, 1);
+  result = false;
+  assert.equal(await telegram.requestChat("cancelled"), false);
+  assert.equal(await telegram.setEmojiStatus("123"), false);
+  for (result of [undefined, "true", 0, {}]) {
+    await assert.rejects(telegram.requestChat("invalid"), {
+      code: "invalid-response",
+    });
+    await assert.rejects(telegram.setEmojiStatus("123"), {
+      code: "invalid-response",
+    });
+  }
+});
+
 test("adapter subscriptions release raw listeners exactly once", () => {
   let rawListener;
   let removals = 0;
