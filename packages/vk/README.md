@@ -1,11 +1,11 @@
-# `@lo/adapter-vk`
+# `@lo-ink/adapter-vk`
 
-VK Mini Apps host adapter for `@lo/miniapp-sdk`, built on the official `@vkontakte/vk-bridge` package.
+VK Mini Apps host adapter for `@lo-ink/miniapp-sdk`, built on the official `@vkontakte/vk-bridge` package.
 
 ```ts
 import bridge from "@vkontakte/vk-bridge";
-import { createAdapter } from "@lo/adapter-vk";
-import { createMiniAppClient } from "@lo/miniapp-sdk";
+import { createAdapter } from "@lo-ink/adapter-vk";
+import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
 
 const adapter = await createAdapter({
   bridge,

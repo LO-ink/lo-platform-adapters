@@ -1,5 +1,5 @@
 {
-  "name": "@lo/adapter-telegram",
+  "name": "@lo-ink/adapter-telegram",
   "version": "0.19.0",
   "description": "Telegram Mini App host adapter for the LO SDK",
   "type": "module",
@@ -24,10 +24,10 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "@lo/miniapp-sdk": "^0.19.0"
+    "@lo-ink/miniapp-sdk": "^0.19.0"
   },
   "dependencies": {
-    "@lo/adapter-webapp-compat": "0.19.0"
+    "@lo-ink/adapter-webapp-compat": "0.19.0"
   },
   "engines": {
     "node": ">=20"

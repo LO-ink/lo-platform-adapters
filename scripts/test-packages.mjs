@@ -23,8 +23,8 @@ const run = (file, args, cwd = root) =>
 const packages = ["compat", "lo", "telegram", "bot-http-lo", "vk"];
 try {
   const archives = [
-    join(root, "vendor/lo-miniapp-sdk-0.19.0.tgz"),
-    join(root, "packages/bot-http-lo/vendor/lo-bot-sdk-0.1.0.tgz"),
+    join(root, "vendor/lo-ink-miniapp-sdk-0.19.0.tgz"),
+    join(root, "packages/bot-http-lo/vendor/lo-ink-bot-sdk-0.1.0.tgz"),
   ];
   for (const folder of packages) {
     const manifest = JSON.parse(
@@ -87,12 +87,12 @@ try {
   writeFileSync(
     join(consumer, "check.mjs"),
     `
-import { createMiniAppClient } from '@lo/miniapp-sdk';
-import { createBotClient } from '@lo/bot-sdk';
-import { createAdapter as createLo } from '@lo/adapter-lo';
-import { createAdapter as createTelegram } from '@lo/adapter-telegram';
-import { detectAdapter as detectVk } from '@lo/adapter-vk';
-import { createLoHttpBotTransport } from '@lo/bot-http-lo';
+import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
+import { createBotClient } from '@lo-ink/bot-sdk';
+import { createAdapter as createLo } from '@lo-ink/adapter-lo';
+import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
+import { detectAdapter as detectVk } from '@lo-ink/adapter-vk';
+import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 if (typeof createMiniAppClient !== 'function' || typeof createBotClient !== 'function' || typeof createLoHttpBotTransport !== 'function') throw new Error('Package export missing');
 if (createLo() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
 `,
@@ -101,12 +101,12 @@ if (createLo() !== null || createTelegram() !== null || await detectVk() !== nul
   writeFileSync(
     join(consumer, "check.ts"),
     `
-import { createMiniAppClient } from '@lo/miniapp-sdk';
-import { createAdapter as createLo } from '@lo/adapter-lo';
-import { createAdapter as createTelegram } from '@lo/adapter-telegram';
-import { createAdapter as createVk } from '@lo/adapter-vk';
-import { createBotClient } from '@lo/bot-sdk';
-import { createLoHttpBotTransport } from '@lo/bot-http-lo';
+import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
+import { createAdapter as createLo } from '@lo-ink/adapter-lo';
+import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
+import { createAdapter as createVk } from '@lo-ink/adapter-vk';
+import { createBotClient } from '@lo-ink/bot-sdk';
+import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 const lo = createLo(); if (lo) createMiniAppClient(lo);
 const telegram = createTelegram(); if (telegram) createMiniAppClient(telegram);
 async function vk() { createMiniAppClient(await createVk()); }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { test } from "node:test";
-import { createBotClient } from "@lo/bot-sdk";
+import { createBotClient } from "@lo-ink/bot-sdk";
 import { createLoHttpBotTransport, HttpBotError } from "../dist/index.js";
 
 const token = "1000000000000042:test-token";

@@ -1,7 +1,11 @@
-import { MiniAppError, withHostCallback } from "@lo/miniapp-sdk";
-import type { CallOptions, Capability, MiniAppAdapter } from "@lo/miniapp-sdk";
-import { createWebAppAdapter } from "@lo/adapter-webapp-compat";
-import type { LegacyWebApp } from "@lo/adapter-webapp-compat";
+import { MiniAppError, withHostCallback } from "@lo-ink/miniapp-sdk";
+import type {
+  CallOptions,
+  Capability,
+  MiniAppAdapter,
+} from "@lo-ink/miniapp-sdk";
+import { createWebAppAdapter } from "@lo-ink/adapter-webapp-compat";
+import type { LegacyWebApp } from "@lo-ink/adapter-webapp-compat";
 
 export type TelegramGlobal = { Telegram?: { WebApp?: LegacyWebApp } };
 export type TelegramDocument = Pick<Document, "createElement" | "head">;

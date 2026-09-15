@@ -1,9 +1,9 @@
-# `@lo/adapter-lo`
+# `@lo-ink/adapter-lo`
 
 Adapter for the canonical LO Mini App native port with a compatibility fallback for clients that still expose `LO.WebApp`. Discovery is synchronous and performs no script loading or authentication.
 
 ```ts
-import { createAdapter } from "@lo/adapter-lo";
+import { createAdapter } from "@lo-ink/adapter-lo";
 
 const adapter = createAdapter();
 ```

@@ -1,5 +1,5 @@
 # Vendored development dependency
 
-`lo-bot-sdk-0.1.0.tgz` was packed from https://github.com/LO-ink/lo-bot-sdk at `879cfb77fe4f09d26baa01deaf779c4a2b14073b`. MIT licensed. This artifact makes standalone CI reproducible before registry publication. Consumers of the published adapter supply the SDK peer dependency.
+`lo-ink-bot-sdk-0.1.0.tgz` was packed from https://github.com/LO-ink/lo-bot-sdk at `7fc98dbe30c2a8baf3a9365f6523335778bf7215`. MIT licensed. This pinned development archive makes standalone CI reproducible. Runtime consumers supply the SDK peer dependency.
 
-SHA-256: `c7704ad4edf0474dcb88a02aa150dc3c0b1e31b95e4a728efb0c3decf75c0933`
+SHA-256: `6bf6bb7cf17b87a165c0a853db44922932607ca14005b7d729490f6349d5814e`

@@ -1,10 +1,10 @@
-# `@lo/bot-http-lo`
+# `@lo-ink/bot-http-lo`
 
-Server-side HTTP transport for `@lo/bot-sdk` and the LO Bot API.
+Server-side HTTP transport for `@lo-ink/bot-sdk` and the LO Bot API.
 
 ```ts
-import { createBotClient } from "@lo/bot-sdk";
-import { createLoHttpBotTransport } from "@lo/bot-http-lo";
+import { createBotClient } from "@lo-ink/bot-sdk";
+import { createLoHttpBotTransport } from "@lo-ink/bot-http-lo";
 
 const transport = createLoHttpBotTransport({
   token: process.env.LO_BOT_TOKEN!,
