@@ -7,12 +7,12 @@ import type {
   MiniAppOperation,
   OperationInput,
   RequestContext,
-} from "@lo/miniapp-sdk";
+} from "@lo-ink/miniapp-sdk";
 import {
   createWebAppAdapter,
   webAppCapabilities,
-} from "@lo/adapter-webapp-compat";
-import type { LegacyWebApp } from "@lo/adapter-webapp-compat";
+} from "@lo-ink/adapter-webapp-compat";
+import type { LegacyWebApp } from "@lo-ink/adapter-webapp-compat";
 import {
   createNativeAdapter,
   type LoMiniAppNativePort,

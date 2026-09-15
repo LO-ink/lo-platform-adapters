@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMiniAppClient } from "@lo/miniapp-sdk";
+import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
 import { createAdapter, createNativeAdapter } from "../dist/index.js";
 
 const baseEnvelope = (generation, fields) => ({

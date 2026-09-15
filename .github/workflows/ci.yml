@@ -16,11 +16,11 @@ jobs:
       - run: npm run check
       - run: npm run format:check
       - run: npm run test:package
-      - run: npm pack --dry-run --workspace @lo/adapter-webapp-compat
-      - run: npm pack --dry-run --workspace @lo/adapter-lo
-      - run: npm pack --dry-run --workspace @lo/adapter-telegram
-      - run: npm pack --dry-run --workspace @lo/bot-http-lo
-      - run: npm pack --dry-run --workspace @lo/adapter-vk
+      - run: npm pack --dry-run --workspace @lo-ink/adapter-webapp-compat
+      - run: npm pack --dry-run --workspace @lo-ink/adapter-lo
+      - run: npm pack --dry-run --workspace @lo-ink/adapter-telegram
+      - run: npm pack --dry-run --workspace @lo-ink/bot-http-lo
+      - run: npm pack --dry-run --workspace @lo-ink/adapter-vk
   bot-frameworks:
     runs-on: ubuntu-latest
     defaults:

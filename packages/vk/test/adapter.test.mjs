@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import officialBridge from "@vkontakte/vk-bridge";
-import { createMiniAppClient, MiniAppError } from "@lo/miniapp-sdk";
+import { createMiniAppClient, MiniAppError } from "@lo-ink/miniapp-sdk";
 import { createAdapter, detectAdapter } from "../dist/index.js";
 
 function mockBridge({ embedded = true, config, send } = {}) {

@@ -1,4 +1,4 @@
-import { MINI_APP_CAPABILITIES, MiniAppError } from "@lo/miniapp-sdk";
+import { MINI_APP_CAPABILITIES, MiniAppError } from "@lo-ink/miniapp-sdk";
 import type {
   AdapterRequest,
   Capability,
@@ -11,7 +11,7 @@ import type {
   OperationOutput,
   RequestContext,
   ThemeColors,
-} from "@lo/miniapp-sdk";
+} from "@lo-ink/miniapp-sdk";
 
 export type LegacyWebApp = Record<string, any> & {
   initData?: string;

@@ -2,9 +2,9 @@ import {
   bindAppearance,
   createMiniAppClient,
   requestWriteAccess,
-} from "@lo/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "@lo/adapter-lo";
-import { loadAdapter as loadTelegramAdapter } from "@lo/adapter-telegram";
+} from "@lo-ink/miniapp-sdk";
+import { createAdapter as createLoAdapter } from "@lo-ink/adapter-lo";
+import { loadAdapter as loadTelegramAdapter } from "@lo-ink/adapter-telegram";
 
 const adapter = createLoAdapter() ?? (await loadTelegramAdapter());
 if (!adapter) throw new Error("Open this Mini App inside a supported host");

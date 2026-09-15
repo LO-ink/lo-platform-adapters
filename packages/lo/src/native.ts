@@ -2,7 +2,7 @@ import {
   MINI_APP_LIMITS,
   MINI_APP_PROTOCOL_VERSION,
   MiniAppError,
-} from "@lo/miniapp-sdk";
+} from "@lo-ink/miniapp-sdk";
 import type {
   AdapterRequest,
   Capability,
@@ -15,7 +15,7 @@ import type {
   OperationOutput,
   RequestContext,
   ThemeColors,
-} from "@lo/miniapp-sdk";
+} from "@lo-ink/miniapp-sdk";
 
 export interface LoMiniAppNativePort {
   readonly protocolVersion: 1;

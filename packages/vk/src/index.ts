@@ -1,6 +1,6 @@
 import bridge from "@vkontakte/vk-bridge";
 import type { VKBridge } from "@vkontakte/vk-bridge";
-import { MiniAppError } from "@lo/miniapp-sdk";
+import { MiniAppError } from "@lo-ink/miniapp-sdk";
 import type {
   Capability,
   HostSnapshot,
@@ -12,7 +12,7 @@ import type {
   OperationInput,
   OperationOutput,
   RequestContext,
-} from "@lo/miniapp-sdk";
+} from "@lo-ink/miniapp-sdk";
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAX_TIMEOUT_MS = 2_147_483_647;

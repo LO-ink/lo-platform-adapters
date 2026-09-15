@@ -7,7 +7,7 @@ import {
   type BotTransport,
   type BotUpdate,
   type Message,
-} from "@lo/bot-sdk";
+} from "@lo-ink/bot-sdk";
 
 const defaultBaseUrl = "https://api.lo.ink";
 const maxResponseBytes = 2 << 20;
