@@ -35,3 +35,20 @@ jobs:
           cache-dependency-path: compatibility/bot-frameworks/package-lock.json
       - run: npm ci
       - run: npm test
+  aiogram:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    defaults:
+      run:
+        working-directory: compatibility/aiogram
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: compatibility/aiogram/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m unittest discover -v
