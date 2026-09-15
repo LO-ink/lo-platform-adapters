@@ -1,7 +1,7 @@
 {
   "name": "@lo/adapter-lo",
-  "version": "0.19.0",
-  "description": "Transitional adapter for the legacy WebApp object exposed by LO",
+  "version": "0.20.0",
+  "description": "Canonical native and legacy compatibility adapter for LO Mini Apps",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -21,6 +21,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs",
     "prepack": "npm run build"
   },
   "peerDependencies": {

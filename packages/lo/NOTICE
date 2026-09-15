@@ -1,4 +1,5 @@
 Compatibility behavior derived from zaytcevcom/lo-miniapp-sdk 0.18.0 at
 15b832edfd03559b12cbb2e843141f10532f5c96 and LO miniapp-runtime at
-64c63e9e350ba35c6b96f037b6fab0b21f9047b2. This package wraps LO's current
-legacy WebApp compatibility surface; it does not implement a native LO bridge.
+64c63e9e350ba35c6b96f037b6fab0b21f9047b2. The legacy fallback wraps LO's
+current WebApp compatibility surface. The canonical native transport is an
+LO-owned protocol and contains no foreign runtime code.
