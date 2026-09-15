@@ -375,3 +375,222 @@ test("Telegram loader is SSR-safe and removes failed script", async () => {
   assert.equal(await loadAdapter({ scope: {}, document, timeoutMs: 50 }), null);
   assert.equal(removed, 1);
 });
+
+test("keyboard launch requires explicit opt-in and never creates signed launch data", async () => {
+  const sent = [];
+  const scope = {
+    Telegram: {
+      WebApp: {
+        initData: "",
+        version: "8.0",
+        sendData: (data) => sent.push(data),
+      },
+    },
+  };
+  assert.equal(createTelegramAdapter(scope), null);
+  const adapter = createTelegramAdapter(scope, { allowEmptyLaunchData: true });
+  assert.ok(adapter);
+  assert.equal(adapter.launchData, "");
+  const client = createMiniAppClient(adapter);
+  await client.call("sendData", { data: "gift" });
+  assert.deepEqual(sent, ["gift"]);
+  client.dispose();
+});
+
+test("coalesced script loading preserves each caller's launch-data policy", async () => {
+  const scope = {};
+  let script;
+  let added = 0;
+  const document = {
+    createElement() {
+      return { remove() {} };
+    },
+    head: {
+      append(value) {
+        script = value;
+        added++;
+      },
+    },
+  };
+  const strict = loadAdapter({ scope, document });
+  const keyboard = loadAdapter({ scope, document, allowEmptyLaunchData: true });
+  scope.Telegram = { WebApp: { initData: "", version: "8.0" } };
+  script.onload();
+  assert.equal(await strict, null);
+  assert.equal((await keyboard).launchData, "");
+  assert.equal(added, 1);
+});
+
+test("home screen and swipe extensions preserve official behavior and cleanup", async () => {
+  let listener;
+  const calls = [];
+  const scope = {
+    Telegram: {
+      WebApp: {
+        initData: "signed",
+        version: "8.0",
+        checkHomeScreenStatus(callback) {
+          callback("missed");
+        },
+        addToHomeScreen() {
+          calls.push("add");
+        },
+        disableVerticalSwipes() {
+          calls.push("disable");
+        },
+        enableVerticalSwipes() {
+          calls.push("enable");
+        },
+        onEvent(event, callback) {
+          assert.equal(event, "homeScreenAdded");
+          listener = callback;
+        },
+        offEvent(event) {
+          calls.push(event);
+        },
+      },
+    },
+  };
+  const { telegram } = createTelegramAdapter(scope);
+  assert.equal(await telegram.checkHomeScreenStatus(), "missed");
+  telegram.addToHomeScreen();
+  telegram.setVerticalSwipes(false);
+  telegram.setVerticalSwipes(true);
+  let notified = 0;
+  const off = telegram.onHomeScreenAdded(() => notified++);
+  listener();
+  off();
+  listener();
+  off();
+  assert.equal(notified, 1);
+  assert.deepEqual(calls, ["add", "disable", "enable", "homeScreenAdded"]);
+  scope.Telegram.WebApp.checkHomeScreenStatus = (callback) =>
+    callback("invalid");
+  await assert.rejects(
+    telegram.checkHomeScreenStatus(),
+    (error) => error.code === "invalid-response",
+  );
+});
+
+test("sensor failures normalize reasons and released callbacks stay inactive", () => {
+  const listeners = new Map();
+  const adapter = createTelegramAdapter({
+    Telegram: {
+      WebApp: {
+        initData: "signed",
+        version: "8.0",
+        onEvent: (event, listener) => listeners.set(event, listener),
+        offEvent() {},
+      },
+    },
+  });
+  const observed = [];
+  for (const [event, wire] of [
+    ["accelerometerFailed", "accelerometerFailed"],
+    ["gyroscopeFailed", "gyroscopeFailed"],
+    ["orientationFailed", "deviceOrientationFailed"],
+  ]) {
+    const off = adapter.subscribe(event, (payload) => observed.push(payload));
+    listeners.get(wire)({ error: "UNSUPPORTED" });
+    off();
+    listeners.get(wire)({ error: "LATE" });
+  }
+  assert.deepEqual(observed, [
+    { reason: "UNSUPPORTED" },
+    { reason: "UNSUPPORTED" },
+    { reason: "UNSUPPORTED" },
+  ]);
+});
+
+test("extension capability checks own version and method availability", () => {
+  const webApp = {
+    initData: "signed",
+    version: "7.6",
+    requestChat() {},
+    disableVerticalSwipes() {},
+    enableVerticalSwipes() {},
+  };
+  const { telegram } = createTelegramAdapter({ Telegram: { WebApp: webApp } });
+  assert.equal(telegram.supports("requestChat"), false);
+  assert.equal(telegram.supports("verticalSwipes"), false);
+  webApp.version = "9.6";
+  assert.equal(telegram.supports("requestChat"), true);
+  assert.equal(telegram.supports("verticalSwipes"), true);
+  assert.equal(telegram.supports("homeScreen"), false);
+  assert.equal(telegram.supports("toString"), false);
+});
+
+test("cancelled sensor starts stop pending and late activity without stopping a newer owner", async () => {
+  for (const [operation, managerName] of [
+    ["startAccelerometer", "Accelerometer"],
+    ["startGyroscope", "Gyroscope"],
+    ["startDeviceOrientation", "DeviceOrientation"],
+  ]) {
+    const callbacks = [];
+    let stops = 0;
+    const manager = {
+      start(_params, callback) {
+        callbacks.push(callback);
+      },
+      stop() {
+        stops++;
+      },
+    };
+    const adapter = createTelegramAdapter({
+      Telegram: {
+        WebApp: { initData: "signed", version: "8.0", [managerName]: manager },
+      },
+    });
+    const client = createMiniAppClient(adapter);
+    const first = client.call(operation, {}, { timeoutMs: 5 });
+    await assert.rejects(first, (error) => error.code === "timeout");
+    assert.equal(stops, 1);
+    callbacks[0](true);
+    assert.equal(stops, 2);
+
+    const cancelled = client.call(operation, {}, { timeoutMs: 5 });
+    await assert.rejects(cancelled, (error) => error.code === "timeout");
+    const newer = client.call(operation, {});
+    const before = stops;
+    callbacks[1](true);
+    assert.equal(stops, before);
+    callbacks[2](true);
+    assert.equal(await newer, true);
+    assert.equal(stops, before);
+    client.dispose();
+  }
+});
+
+test("sensor start does not acquire a manager already running for another caller", async () => {
+  let calls = 0;
+  const manager = {
+    isStarted: true,
+    start() {
+      calls++;
+    },
+    stop() {
+      calls++;
+    },
+  };
+  const adapter = createTelegramAdapter({
+    Telegram: {
+      WebApp: {
+        initData: "signed",
+        version: "8.0",
+        Accelerometer: manager,
+        Gyroscope: manager,
+        DeviceOrientation: manager,
+      },
+    },
+  });
+  const client = createMiniAppClient(adapter);
+  for (const operation of [
+    "startAccelerometer",
+    "startGyroscope",
+    "startDeviceOrientation",
+  ]) {
+    assert.equal(await client.call(operation, {}), false);
+  }
+  client.dispose();
+  assert.equal(calls, 0);
+});

@@ -103,8 +103,11 @@ const eventNames: Record<MiniAppEvent, string> = {
   qrTextReceived: "qrTextReceived",
   qrScannerClosed: "scanQrPopupClosed",
   accelerometerChanged: "accelerometerChanged",
+  accelerometerFailed: "accelerometerFailed",
   gyroscopeChanged: "gyroscopeChanged",
+  gyroscopeFailed: "gyroscopeFailed",
   orientationChanged: "deviceOrientationChanged",
+  orientationFailed: "deviceOrientationFailed",
 };
 
 export function webAppCapabilities(
@@ -167,7 +170,9 @@ export function createWebAppAdapter(
           `Event subscription is unavailable: ${event}`,
         );
       }
+      let active = true;
       const rawListener = (...args: any[]) => {
+        if (!active) return;
         const first = args[0];
         let payload: unknown = first;
         if (event === "themeChanged" || event === "viewportChanged")
@@ -178,7 +183,12 @@ export function createWebAppAdapter(
           payload = normalizeInsets(webApp.contentSafeAreaInset);
         else if (event === "fullscreenChanged")
           payload = webApp.isFullscreen === true;
-        else if (event === "fullscreenFailed")
+        else if (
+          event === "fullscreenFailed" ||
+          event === "accelerometerFailed" ||
+          event === "gyroscopeFailed" ||
+          event === "orientationFailed"
+        )
           payload = {
             reason: typeof first?.error === "string" ? first.error : undefined,
           };
@@ -205,7 +215,6 @@ export function createWebAppAdapter(
         listener(payload as MiniAppEventMap[K]);
       };
       webApp.onEvent(eventNames[event], rawListener);
-      let active = true;
       return () => {
         if (!active) return;
         active = false;
@@ -489,22 +498,27 @@ function execute(
     case "openBiometrySettings":
       return command(webApp.BiometricManager, "openSettings");
     case "startAccelerometer":
-      return managerBoolean(webApp.Accelerometer, "start", {
-        refresh_rate: input.refreshRate,
-      });
+      return sensorStart(
+        webApp.Accelerometer,
+        { refresh_rate: input.refreshRate },
+        context,
+      );
     case "stopAccelerometer":
       return managerBoolean(webApp.Accelerometer, "stop");
     case "startGyroscope":
-      return managerBoolean(webApp.Gyroscope, "start", {
-        refresh_rate: input.refreshRate,
-      });
+      return sensorStart(
+        webApp.Gyroscope,
+        { refresh_rate: input.refreshRate },
+        context,
+      );
     case "stopGyroscope":
       return managerBoolean(webApp.Gyroscope, "stop");
     case "startDeviceOrientation":
-      return managerBoolean(webApp.DeviceOrientation, "start", {
-        refresh_rate: input.refreshRate,
-        need_absolute: input.absolute,
-      });
+      return sensorStart(
+        webApp.DeviceOrientation,
+        { refresh_rate: input.refreshRate, need_absolute: input.absolute },
+        context,
+      );
     case "stopDeviceOrientation":
       return managerBoolean(webApp.DeviceOrientation, "stop");
     case "downloadFile":
@@ -675,6 +689,62 @@ function booleanCallback(target: any, name: string, ...args: any[]) {
   if (!method(target, name)) return unsupported(name);
   return callback((done) => target[name](...args, done), strictBoolean);
 }
+const sensorOwners = new WeakMap<object, symbol>();
+
+function sensorStart(
+  target: any,
+  params: any,
+  context: RequestContext,
+): Request<boolean> {
+  if (!method(target, "start") || !method(target, "stop"))
+    return unsupported("sensor start");
+  // A caller must not acquire or later stop a sensor already owned elsewhere.
+  if (target.isStarted === true) return resolved(false);
+  const owner = Symbol();
+  sensorOwners.set(target, owner);
+  let completed = false;
+  let cancelled = false;
+  let released = false;
+  const stopOwned = () => {
+    if (sensorOwners.get(target) !== owner) return;
+    try {
+      target.stop();
+    } catch {
+      /* Cleanup must not replace the request result. */
+    }
+  };
+  return {
+    promise: new Promise<boolean>((resolve, reject) => {
+      try {
+        target.start(params, (value: unknown) => {
+          if (cancelled) {
+            if (value === true) stopOwned();
+            return;
+          }
+          if (completed) return;
+          try {
+            const started = strictBoolean(value);
+            completed = true;
+            resolve(started);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      } catch (error) {
+        reject(error);
+      }
+    }),
+    cleanup() {
+      if (released) return;
+      released = true;
+      if (!completed || context.signal?.aborted) {
+        cancelled = true;
+        stopOwned();
+      }
+    },
+  };
+}
+
 function managerBoolean(target: any, name: string, params?: any) {
   if (!method(target, name)) return unsupported(name);
   return callback(

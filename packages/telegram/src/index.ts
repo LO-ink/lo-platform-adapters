@@ -42,7 +42,31 @@ const capabilityVersions: Record<Capability, string> = {
   invoice: "6.1",
 };
 
+const extensionRequirements = {
+  requestChat: ["9.6", "requestChat"],
+  setEmojiStatus: ["8.0", "setEmojiStatus"],
+  openTelegramLink: ["6.1", "openTelegramLink"],
+  homeScreen: [
+    "8.0",
+    "checkHomeScreenStatus",
+    "addToHomeScreen",
+    "onEvent",
+    "offEvent",
+  ],
+  verticalSwipes: ["7.7", "enableVerticalSwipes", "disableVerticalSwipes"],
+} as const;
+
+export type TelegramExtension = keyof typeof extensionRequirements;
+
 export interface TelegramAdapterExtensions {
+  supports(extension: TelegramExtension): boolean;
+  verticalSwipesEnabled(): boolean | undefined;
+  checkHomeScreenStatus(
+    options?: CallOptions,
+  ): Promise<"unsupported" | "unknown" | "added" | "missed">;
+  addToHomeScreen(): void;
+  setVerticalSwipes(enabled: boolean): void;
+  onHomeScreenAdded(listener: () => void): () => void;
   requestChat(id: string, options?: CallOptions): Promise<boolean>;
   setEmojiStatus(
     id: string,
@@ -75,9 +99,14 @@ export function isVersionAtLeast(
 
 export function createAdapter(
   scope: TelegramGlobal = globalThis as TelegramGlobal,
+  options: { allowEmptyLaunchData?: boolean } = {},
 ): TelegramMiniAppAdapter | null {
   const webApp = scope.Telegram?.WebApp;
-  if (!webApp || typeof webApp.initData !== "string" || !webApp.initData)
+  if (
+    !webApp ||
+    typeof webApp.initData !== "string" ||
+    (!webApp.initData && options.allowEmptyLaunchData !== true)
+  )
     return null;
   const capabilities = new Set<Capability>();
   for (const [capability, version] of Object.entries(capabilityVersions) as [
@@ -103,6 +132,67 @@ export function createAdapter(
   return {
     ...base,
     telegram: {
+      verticalSwipesEnabled() {
+        return typeof webApp.isVerticalSwipesEnabled === "boolean"
+          ? webApp.isVerticalSwipesEnabled
+          : undefined;
+      },
+      supports(extension) {
+        if (!Object.hasOwn(extensionRequirements, extension)) return false;
+        const [minimum, ...methods] = extensionRequirements[extension];
+        return (
+          isVersionAtLeast(webApp.version, minimum) &&
+          methods.every((name) => typeof webApp[name] === "function")
+        );
+      },
+      async checkHomeScreenStatus(options = {}) {
+        requireVersion("8.0", "checkHomeScreenStatus");
+        return withHostCallback((finish) => {
+          webApp.checkHomeScreenStatus((status: unknown) => {
+            if (
+              status === "unsupported" ||
+              status === "unknown" ||
+              status === "added" ||
+              status === "missed"
+            )
+              finish(null, status);
+            else
+              finish(
+                new MiniAppError(
+                  "invalid-response",
+                  "Invalid home screen status",
+                ),
+              );
+          });
+        }, options);
+      },
+      addToHomeScreen() {
+        requireVersion("8.0", "addToHomeScreen");
+        webApp.addToHomeScreen();
+      },
+      setVerticalSwipes(enabled) {
+        if (typeof enabled !== "boolean")
+          throw new TypeError("enabled must be a boolean");
+        const method = enabled
+          ? "enableVerticalSwipes"
+          : "disableVerticalSwipes";
+        requireVersion("7.7", method);
+        webApp[method]();
+      },
+      onHomeScreenAdded(listener) {
+        requireVersion("8.0", "onEvent");
+        requireVersion("8.0", "offEvent");
+        let active = true;
+        const handler = () => {
+          if (active) listener();
+        };
+        webApp.onEvent!("homeScreenAdded", handler);
+        return () => {
+          if (!active) return;
+          active = false;
+          webApp.offEvent!("homeScreenAdded", handler);
+        };
+      },
       async requestChat(id, options = {}) {
         requireVersion("9.6", "requestChat");
         if (typeof id !== "string" || !id.length || id.length > 128) {
@@ -142,24 +232,28 @@ export function createAdapter(
 
 export const detectAdapter = createAdapter;
 
-const loads = new WeakMap<object, Promise<TelegramMiniAppAdapter | null>>();
+const loads = new WeakMap<object, Promise<void>>();
 export function loadAdapter(
   options: {
     scope?: TelegramGlobal;
     document?: TelegramDocument;
     timeoutMs?: number;
     scriptUrl?: string;
+    /** Keyboard Mini Apps may have no signed data; this does not authenticate a user. */
+    allowEmptyLaunchData?: boolean;
   } = {},
 ): Promise<TelegramMiniAppAdapter | null> {
   const scope = options.scope ?? (globalThis as TelegramGlobal);
-  const detected = createAdapter(scope);
+  const allowEmptyLaunchData = options.allowEmptyLaunchData === true;
+  const detected = createAdapter(scope, { allowEmptyLaunchData });
   if (detected) return Promise.resolve(detected);
   const document =
     options.document ??
     (globalThis as { document?: TelegramDocument }).document;
   if (!document) return Promise.resolve(null);
   const existing = loads.get(scope);
-  if (existing) return existing;
+  if (existing)
+    return existing.then(() => createAdapter(scope, { allowEmptyLaunchData }));
   const timeoutMs = options.timeoutMs ?? 6_000;
   if (
     !Number.isInteger(timeoutMs) ||
@@ -172,7 +266,7 @@ export function loadAdapter(
       ),
     );
   }
-  const result = new Promise<TelegramMiniAppAdapter | null>((resolve) => {
+  const result = new Promise<void>((resolve) => {
     const script = document.createElement("script");
     let settled = false;
     const finish = () => {
@@ -182,7 +276,7 @@ export function loadAdapter(
       script.onload = null;
       script.onerror = null;
       script.remove();
-      resolve(createAdapter(scope));
+      resolve();
     };
     const timer = setTimeout(finish, timeoutMs);
     script.src =
@@ -199,5 +293,5 @@ export function loadAdapter(
     loads.delete(scope);
   });
   loads.set(scope, result);
-  return result;
+  return result.then(() => createAdapter(scope, { allowEmptyLaunchData }));
 }
