@@ -1,0 +1,43 @@
+{
+  "name": "@lo/adapter-lo",
+  "version": "0.19.0",
+  "description": "Transitional adapter for the legacy WebApp object exposed by LO",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@lo/miniapp-sdk": "^0.19.0"
+  },
+  "dependencies": {
+    "@lo/adapter-webapp-compat": "0.19.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lo-ink/lo-platform-adapters.git",
+    "directory": "packages/lo"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

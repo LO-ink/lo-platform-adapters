@@ -1,0 +1,8 @@
+The legacy WebApp compatibility translation was derived from behavior in
+zaytcevcom/lo-miniapp-sdk version 0.18.0, source commit
+15b832edfd03559b12cbb2e843141f10532f5c96, and LO app miniapp-runtime commit
+64c63e9e350ba35c6b96f037b6fab0b21f9047b2.
+
+No native LO bridge implementation is included. The LO adapter currently wraps
+the legacy WebApp object exposed by the LO application while the canonical host
+bridge is migrated.
