@@ -2,13 +2,13 @@
 
 Host-specific adapters for `@lo/miniapp-sdk`. Platform globals, version gates, wire names, and callback shapes live here instead of the canonical SDK.
 
-- `@lo/adapter-lo` wraps the legacy compatibility object injected by current LO clients. Its `lo-legacy-webapp` identity makes the transition explicit.
+- `@lo/adapter-lo` 0.20 prefers `LO.MiniAppNative` for `ready`, `expand`, `setClosingConfirmation`, `openLink`, `sendData`, and `requestWriteAccess`, and composes a matching-session `LO.WebApp` fallback for remaining capabilities.
 - `@lo/adapter-telegram` detects a Telegram host and can load the official browser script with a bounded, coalesced loader.
 - `@lo/adapter-webapp-compat` contains shared translation code used by both public adapters.
 - `@lo/adapter-vk` initializes the official VK Bridge and normalizes host appearance, viewport, safe-area and lifecycle events.
 - `@lo/bot-http-lo` implements the server-side HTTP transport for `@lo/bot-sdk`.
 
-The native LO bridge migration is separate work. Each adapter documents its supported capabilities; hosted VK authentication and production conformance have not been verified by the local fixture suite.
+The native LO slice is intentionally bounded: `activated` and `deactivated` are canonical, while dynamic theme, viewport, safe-area, and fullscreen updates remain on the matching legacy fallback. Released-client acceptance is still pending. Each adapter documents its supported capabilities; hosted VK authentication and production conformance have not been verified by the local fixture suite.
 
 ```sh
 npm ci
