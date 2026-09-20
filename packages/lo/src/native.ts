@@ -23,6 +23,8 @@ export interface LoMiniAppNativePort {
   readonly launchData: string;
   readonly operations: readonly string[];
   readonly capabilities: readonly string[];
+  readonly events?: readonly string[];
+  readonly canonicalSnapshot?: boolean;
   snapshot(): HostSnapshot;
   postMessage(raw: string): void;
   subscribe(listener: (raw: string) => void): () => void;
@@ -43,24 +45,106 @@ const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 const operationCapabilities = {
   ready: "ready",
+  close: "close",
   expand: "expand",
+  requestFullscreen: "fullscreen",
+  exitFullscreen: "fullscreen",
+  hideKeyboard: "hideKeyboard",
+  setOrientationLock: "orientation",
+  setButton: "backButton",
   setClosingConfirmation: "closingConfirmation",
+  setHeaderColor: "headerColor",
+  setBackgroundColor: "backgroundColor",
+  setBottomBarColor: "bottomBarColor",
+  haptic: "haptics",
+  showPopup: "popup",
   openLink: "openLink",
   sendData: "sendData",
+  switchInlineQuery: "switchInlineQuery",
+  readClipboard: "clipboard",
+  getLocation: "location",
+  openLocationSettings: "location",
+  getBiometryInfo: "biometry",
+  requestBiometryAccess: "biometry",
+  authenticateBiometry: "biometry",
+  updateBiometryToken: "biometry",
+  openBiometrySettings: "biometry",
+  startAccelerometer: "sensors",
+  stopAccelerometer: "sensors",
+  startGyroscope: "sensors",
+  stopGyroscope: "sensors",
+  startDeviceOrientation: "sensors",
+  stopDeviceOrientation: "sensors",
+  downloadFile: "downloadFile",
+  openQrScanner: "qrScanner",
+  closeQrScanner: "qrScanner",
   requestWriteAccess: "requestWriteAccess",
+  requestContact: "requestContact",
+  shareMessage: "shareMessage",
+  cloudStorageSet: "cloudStorage",
+  cloudStorageGet: "cloudStorage",
+  cloudStorageGetMany: "cloudStorage",
+  cloudStorageRemove: "cloudStorage",
+  cloudStorageRemoveMany: "cloudStorage",
+  cloudStorageKeys: "cloudStorage",
+  deviceStorageSet: "deviceStorage",
+  deviceStorageGet: "deviceStorage",
+  deviceStorageRemove: "deviceStorage",
+  deviceStorageClear: "deviceStorage",
+  secureStorageSet: "secureStorage",
+  secureStorageGet: "secureStorage",
+  secureStorageRestore: "secureStorage",
+  secureStorageRemove: "secureStorage",
+  secureStorageClear: "secureStorage",
 } as const satisfies Partial<Record<MiniAppOperation, Capability>>;
 
 export type LoNativeOperation = keyof typeof operationCapabilities;
 const nativeOperations = new Set<MiniAppOperation>(
   Object.keys(operationCapabilities) as LoNativeOperation[],
 );
-const lifecycleEvents = new Set<MiniAppEvent>(["activated", "deactivated"]);
+const nativeEvents = new Set<MiniAppEvent>([
+  "activated",
+  "deactivated",
+  "themeChanged",
+  "viewportChanged",
+  "safeAreaChanged",
+  "contentSafeAreaChanged",
+  "fullscreenChanged",
+  "fullscreenFailed",
+  "backButtonClicked",
+  "mainButtonClicked",
+  "secondaryButtonClicked",
+  "settingsButtonClicked",
+  "qrTextReceived",
+  "qrScannerClosed",
+  "accelerometerChanged",
+  "accelerometerFailed",
+  "gyroscopeChanged",
+  "gyroscopeFailed",
+  "orientationChanged",
+  "orientationFailed",
+]);
 const voidOperations = new Set<MiniAppOperation>([
   "ready",
+  "close",
   "expand",
+  "requestFullscreen",
+  "exitFullscreen",
+  "hideKeyboard",
+  "setOrientationLock",
+  "setButton",
   "setClosingConfirmation",
+  "setHeaderColor",
+  "setBackgroundColor",
+  "setBottomBarColor",
+  "haptic",
   "openLink",
   "sendData",
+  "switchInlineQuery",
+  "openLocationSettings",
+  "openBiometrySettings",
+  "openQrScanner",
+  "closeQrScanner",
 ]);
 
 type ValidatedPort = {
@@ -68,6 +152,8 @@ type ValidatedPort = {
   launchData: string;
   operations: ReadonlySet<string>;
   capabilities: ReadonlySet<string>;
+  events: ReadonlySet<string>;
+  canonicalSnapshot: boolean;
   initialSnapshot: HostSnapshot;
   snapshot(): unknown;
   postMessage(raw: string): void;
@@ -76,7 +162,30 @@ type ValidatedPort = {
 
 export interface LoNativeAdapter extends MiniAppAdapter {
   readonly nativeOperations: ReadonlySet<LoNativeOperation>;
+  readonly nativeEvents: ReadonlySet<MiniAppEvent>;
+  readonly canonicalSnapshot: boolean;
+  nativeSupports<K extends MiniAppOperation>(
+    operation: K,
+    input: OperationInput<K>,
+  ): boolean;
 }
+
+const eventCapabilities = new Map<MiniAppEvent, Capability>([
+  ["fullscreenChanged", "fullscreen"],
+  ["fullscreenFailed", "fullscreen"],
+  ["backButtonClicked", "backButton"],
+  ["mainButtonClicked", "mainButton"],
+  ["secondaryButtonClicked", "secondaryButton"],
+  ["settingsButtonClicked", "settingsButton"],
+  ["qrTextReceived", "qrScanner"],
+  ["qrScannerClosed", "qrScanner"],
+  ["accelerometerChanged", "sensors"],
+  ["accelerometerFailed", "sensors"],
+  ["gyroscopeChanged", "sensors"],
+  ["gyroscopeFailed", "sensors"],
+  ["orientationChanged", "sensors"],
+  ["orientationFailed", "sensors"],
+]);
 
 type EnvelopeListener = (envelope: Record<string, unknown>) => void;
 type PortConnection = {
@@ -279,7 +388,11 @@ function validatePort(value: unknown): ValidatedPort | null {
     }
     const operations = stringSet(port.operations);
     const capabilities = stringSet(port.capabilities);
-    if (!operations || !capabilities) return null;
+    const events =
+      port.events === undefined
+        ? new Set(["activated", "deactivated"])
+        : stringSet(port.events);
+    if (!operations || !capabilities || !events) return null;
     const snapshot = port.snapshot.bind(value);
     const initialSnapshot = normalizeSnapshot(snapshot());
     if (!initialSnapshot) return null;
@@ -288,6 +401,8 @@ function validatePort(value: unknown): ValidatedPort | null {
       launchData: port.launchData,
       operations,
       capabilities,
+      events,
+      canonicalSnapshot: port.canonicalSnapshot === true,
       initialSnapshot,
       snapshot,
       postMessage: port.postMessage.bind(value),
@@ -343,6 +458,206 @@ function hostError(value: unknown): MiniAppError | null {
           ? "failed"
           : null;
   return code ? new MiniAppError(code, source.message) : null;
+}
+
+function normalizeEventPayload(
+  event: MiniAppEvent,
+  value: unknown,
+): unknown | null {
+  if (
+    [
+      "activated",
+      "deactivated",
+      "backButtonClicked",
+      "mainButtonClicked",
+      "secondaryButtonClicked",
+      "settingsButtonClicked",
+      "qrScannerClosed",
+    ].includes(event)
+  ) {
+    return value === null || value === undefined ? undefined : null;
+  }
+  if (["themeChanged", "viewportChanged"].includes(event))
+    return normalizeSnapshot(value);
+  if (["safeAreaChanged", "contentSafeAreaChanged"].includes(event))
+    return normalizeInsets(value);
+  if (event === "fullscreenChanged")
+    return typeof value === "boolean" ? value : null;
+  const source = record(value);
+  if (!source) return null;
+  if (
+    [
+      "fullscreenFailed",
+      "accelerometerFailed",
+      "gyroscopeFailed",
+      "orientationFailed",
+    ].includes(event)
+  ) {
+    return source.reason === undefined ||
+      boundedString(source.reason, MAX_ERROR_MESSAGE_BYTES, true)
+      ? { reason: source.reason as string | undefined }
+      : null;
+  }
+  if (event === "qrTextReceived") {
+    return boundedString(source.data, 8192) ? { data: source.data } : null;
+  }
+  if (["accelerometerChanged", "gyroscopeChanged"].includes(event)) {
+    return [source.x, source.y, source.z].every(
+      (value) => typeof value === "number" && Number.isFinite(value),
+    )
+      ? { x: source.x, y: source.y, z: source.z }
+      : null;
+  }
+  if (event === "orientationChanged") {
+    return typeof source.absolute === "boolean" &&
+      [source.alpha, source.beta, source.gamma].every(
+        (value) => typeof value === "number" && Number.isFinite(value),
+      )
+      ? {
+          absolute: source.absolute,
+          alpha: source.alpha,
+          beta: source.beta,
+          gamma: source.gamma,
+        }
+      : null;
+  }
+  return null;
+}
+
+function normalizeOperationResult(
+  operation: LoNativeOperation,
+  value: unknown,
+): unknown | null {
+  if (voidOperations.has(operation))
+    return value === null || value === undefined ? undefined : null;
+  if (
+    [
+      "requestWriteAccess",
+      "requestContact",
+      "shareMessage",
+      "requestBiometryAccess",
+      "updateBiometryToken",
+      "startAccelerometer",
+      "stopAccelerometer",
+      "startGyroscope",
+      "stopGyroscope",
+      "startDeviceOrientation",
+      "stopDeviceOrientation",
+      "downloadFile",
+      "cloudStorageSet",
+      "cloudStorageRemove",
+      "cloudStorageRemoveMany",
+      "deviceStorageSet",
+      "deviceStorageRemove",
+      "deviceStorageClear",
+      "secureStorageSet",
+      "secureStorageRemove",
+      "secureStorageClear",
+    ].includes(operation)
+  ) {
+    return typeof value === "boolean" ? value : null;
+  }
+  if (["readClipboard", "deviceStorageGet"].includes(operation))
+    return value === null || typeof value === "string" ? value : null;
+  if (["cloudStorageGet", "secureStorageRestore"].includes(operation))
+    return typeof value === "string" ? value : null;
+  if (operation === "showPopup")
+    return value === undefined || value === null || typeof value === "string"
+      ? (value ?? undefined)
+      : null;
+  if (operation === "getLocation") {
+    if (value === null) return value;
+    const source = record(value);
+    if (
+      !source ||
+      typeof source.latitude !== "number" ||
+      !Number.isFinite(source.latitude) ||
+      Math.abs(source.latitude) > 90 ||
+      typeof source.longitude !== "number" ||
+      !Number.isFinite(source.longitude) ||
+      Math.abs(source.longitude) > 180
+    )
+      return null;
+    for (const key of [
+      "altitude",
+      "course",
+      "speed",
+      "horizontalAccuracy",
+      "verticalAccuracy",
+      "courseAccuracy",
+      "speedAccuracy",
+    ]) {
+      if (
+        source[key] !== null &&
+        (typeof source[key] !== "number" || !Number.isFinite(source[key]))
+      )
+        return null;
+    }
+    return {
+      latitude: source.latitude,
+      longitude: source.longitude,
+      altitude: source.altitude,
+      course: source.course,
+      speed: source.speed,
+      horizontalAccuracy: source.horizontalAccuracy,
+      verticalAccuracy: source.verticalAccuracy,
+      courseAccuracy: source.courseAccuracy,
+      speedAccuracy: source.speedAccuracy,
+    };
+  }
+  if (operation === "getBiometryInfo") {
+    const source = record(value);
+    return source &&
+      typeof source.available === "boolean" &&
+      ["finger", "face", "unknown"].includes(String(source.type)) &&
+      typeof source.accessRequested === "boolean" &&
+      typeof source.accessGranted === "boolean" &&
+      typeof source.tokenSaved === "boolean" &&
+      boundedString(source.deviceId, 1024, true)
+      ? {
+          available: source.available,
+          type: source.type,
+          accessRequested: source.accessRequested,
+          accessGranted: source.accessGranted,
+          tokenSaved: source.tokenSaved,
+          deviceId: source.deviceId,
+        }
+      : null;
+  }
+  if (operation === "authenticateBiometry") {
+    const source = record(value);
+    return source &&
+      typeof source.authenticated === "boolean" &&
+      (source.token === undefined || boundedString(source.token, 4096, true))
+      ? {
+          authenticated: source.authenticated,
+          ...(source.token === undefined ? {} : { token: source.token }),
+        }
+      : null;
+  }
+  if (operation === "cloudStorageGetMany") {
+    const source = record(value);
+    return source &&
+      Object.entries(source).every(
+        ([key, item]) => boundedString(key, 128) && typeof item === "string",
+      )
+      ? Object.fromEntries(Object.entries(source))
+      : null;
+  }
+  if (operation === "cloudStorageKeys")
+    return Array.isArray(value) &&
+      value.every((item) => typeof item === "string")
+      ? value.slice()
+      : null;
+  if (operation === "secureStorageGet") {
+    const source = record(value);
+    return source &&
+      (source.value === null || typeof source.value === "string") &&
+      typeof source.canRestore === "boolean"
+      ? { value: source.value, canRestore: source.canRestore }
+      : null;
+  }
+  return null;
 }
 
 function releaseOnce(release: (() => void) | undefined): () => void {
@@ -566,28 +881,23 @@ function request<K extends LoNativeOperation>(
           ok: false,
           error: new MiniAppError("invalid-response", "Invalid LO host result"),
         });
-      } else if (operation === "requestWriteAccess") {
-        if (typeof envelope.value !== "boolean") {
+      } else {
+        const normalized = normalizeOperationResult(operation, envelope.value);
+        const nullable =
+          operation === "readClipboard" ||
+          operation === "getLocation" ||
+          operation === "deviceStorageGet";
+        if (normalized === null && !(nullable && envelope.value === null)) {
           finish({
             ok: false,
             error: new MiniAppError(
               "invalid-response",
-              "Invalid LO write-access result",
+              "Invalid LO host result",
             ),
           });
         } else {
-          finish({ ok: true, value: envelope.value as OperationOutput<K> });
+          finish({ ok: true, value: normalized as OperationOutput<K> });
         }
-      } else if (
-        voidOperations.has(operation) &&
-        (envelope.value === null || envelope.value === undefined)
-      ) {
-        finish({ ok: true, value: undefined as OperationOutput<K> });
-      } else {
-        finish({
-          ok: false,
-          error: new MiniAppError("invalid-response", "Invalid LO host result"),
-        });
       }
     });
     removePortListener = releaseOnce(release);
@@ -688,18 +998,52 @@ export function createNativeAdapter(
   for (const operation of nativeOperations) {
     const typed = operation as LoNativeOperation;
     const capability = operationCapabilities[typed];
-    if (port.operations.has(operation) && port.capabilities.has(capability)) {
+    if (typed === "setButton" && port.operations.has(operation)) {
+      const buttonCapabilities = [
+        "backButton",
+        "mainButton",
+        "secondaryButton",
+        "settingsButton",
+      ] as const;
+      for (const buttonCapability of buttonCapabilities) {
+        if (port.capabilities.has(buttonCapability))
+          capabilities.add(buttonCapability);
+      }
+      if (buttonCapabilities.some((value) => capabilities.has(value)))
+        supportedOperations.add(typed);
+    } else if (
+      port.operations.has(operation) &&
+      port.capabilities.has(capability)
+    ) {
       supportedOperations.add(typed);
       capabilities.add(capability);
     }
   }
   let currentSnapshot = port.initialSnapshot;
+  const supportedEvents = new Set<MiniAppEvent>();
+  for (const event of nativeEvents) {
+    const capability = eventCapabilities.get(event);
+    if (
+      port.events.has(event) &&
+      (!capability || port.capabilities.has(capability))
+    )
+      supportedEvents.add(event);
+  }
 
   return {
     id: "lo",
     launchData: port.launchData,
     capabilities,
     nativeOperations: supportedOperations,
+    nativeEvents: supportedEvents,
+    canonicalSnapshot: port.canonicalSnapshot,
+    nativeSupports(operation, input) {
+      if (!supportedOperations.has(operation as LoNativeOperation))
+        return false;
+      if (operation !== "setButton") return true;
+      const button = (input as OperationInput<"setButton">).button;
+      return capabilities.has(`${button}Button` as Capability);
+    },
     snapshot() {
       try {
         const next = normalizeSnapshot(port.snapshot());
@@ -713,7 +1057,7 @@ export function createNativeAdapter(
       event: K,
       listener: (payload: MiniAppEventMap[K]) => void,
     ) {
-      if (!lifecycleEvents.has(event)) {
+      if (!supportedEvents.has(event)) {
         throw new MiniAppError(
           "unsupported",
           `Event subscription is unavailable: ${event}`,
@@ -723,8 +1067,9 @@ export function createNativeAdapter(
       const rawListener = (envelope: Record<string, unknown>) => {
         if (!active) return;
         if (envelope.kind !== "event" || envelope.event !== event) return;
-        if (envelope.payload !== undefined && envelope.payload !== null) return;
-        listener(undefined as MiniAppEventMap[K]);
+        const payload = normalizeEventPayload(event, envelope.payload);
+        if (payload === null) return;
+        listener(payload as MiniAppEventMap[K]);
       };
       let release: (() => void) | undefined;
       try {
@@ -749,6 +1094,18 @@ export function createNativeAdapter(
         return Promise.reject(
           new MiniAppError("unsupported", `${operation} is unavailable`),
         );
+      }
+      if (operation === "setButton") {
+        const button = (input as OperationInput<"setButton">).button;
+        const buttonCapability = `${button}Button` as Capability;
+        if (!capabilities.has(buttonCapability)) {
+          return Promise.reject(
+            new MiniAppError(
+              "unsupported",
+              `${buttonCapability} is unavailable`,
+            ),
+          );
+        }
       }
       return request(
         port,
