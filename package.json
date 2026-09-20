@@ -14,7 +14,7 @@
     "test": "npm run build && node --test test/*.test.mjs && npm test --workspaces --if-present"
   },
   "devDependencies": {
-    "@lo-ink/miniapp-sdk": "file:vendor/lo-ink-miniapp-sdk-0.19.0.tgz",
+    "@lo-ink/miniapp-sdk": "file:vendor/lo-ink-miniapp-sdk-0.19.1.tgz",
     "prettier": "3.6.2",
     "typescript": "5.9.3"
   }

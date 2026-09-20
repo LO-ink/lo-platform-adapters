@@ -304,6 +304,8 @@ function execute(
   context: RequestContext,
 ): Request<any> {
   switch (operation) {
+    case "close":
+      return command(webApp, "close");
     case "ready":
       return command(webApp, "ready");
     case "expand":
@@ -397,6 +399,12 @@ function execute(
       return resolved(undefined);
     }
     case "haptic": {
+      if (input.kind === "selection") {
+        if (!method(webApp.HapticFeedback, "selectionChanged"))
+          return unsupported(operation);
+        webApp.HapticFeedback.selectionChanged();
+        return resolved(undefined);
+      }
       const notification = ["success", "warning", "error"].includes(input.kind);
       const name = notification ? "notificationOccurred" : "impactOccurred";
       if (!method(webApp.HapticFeedback, name)) return unsupported(operation);

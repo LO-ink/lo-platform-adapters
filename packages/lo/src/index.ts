@@ -17,7 +17,6 @@ import {
   createNativeAdapter,
   type LoMiniAppNativePort,
   type LoNativeAdapter,
-  type LoNativeOperation,
 } from "./native.js";
 
 export {
@@ -61,13 +60,13 @@ function composeAdapters(
     launchData: native.launchData,
     capabilities,
     snapshot(): HostSnapshot {
-      return legacy.snapshot();
+      return native.canonicalSnapshot ? native.snapshot() : legacy.snapshot();
     },
     subscribe<K extends MiniAppEvent>(
       event: K,
       listener: (payload: MiniAppEventMap[K]) => void,
     ) {
-      return event === "activated" || event === "deactivated"
+      return native.nativeEvents.has(event)
         ? native.subscribe(event, listener)
         : legacy.subscribe(event, listener);
     },
@@ -76,7 +75,7 @@ function composeAdapters(
       input: OperationInput<K>,
       context: RequestContext,
     ) {
-      if (native.nativeOperations.has(operation as LoNativeOperation)) {
+      if (native.nativeSupports(operation, input)) {
         return native.execute(operation, input, context);
       }
       return legacy.execute(operation, input, context);

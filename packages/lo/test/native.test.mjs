@@ -113,6 +113,298 @@ test("canonical discovery derives only implemented and jointly advertised capabi
   assert.equal(host.removals(), 1);
 });
 
+test("complete shipped port exposes every non-payment canonical capability", () => {
+  const operations = [
+    "ready",
+    "close",
+    "expand",
+    "requestFullscreen",
+    "exitFullscreen",
+    "hideKeyboard",
+    "setOrientationLock",
+    "setButton",
+    "setClosingConfirmation",
+    "setHeaderColor",
+    "setBackgroundColor",
+    "setBottomBarColor",
+    "haptic",
+    "showPopup",
+    "openLink",
+    "sendData",
+    "switchInlineQuery",
+    "readClipboard",
+    "getLocation",
+    "openLocationSettings",
+    "getBiometryInfo",
+    "requestBiometryAccess",
+    "authenticateBiometry",
+    "updateBiometryToken",
+    "openBiometrySettings",
+    "startAccelerometer",
+    "stopAccelerometer",
+    "startGyroscope",
+    "stopGyroscope",
+    "startDeviceOrientation",
+    "stopDeviceOrientation",
+    "downloadFile",
+    "openQrScanner",
+    "closeQrScanner",
+    "requestWriteAccess",
+    "requestContact",
+    "shareMessage",
+    "cloudStorageSet",
+    "cloudStorageGet",
+    "cloudStorageGetMany",
+    "cloudStorageRemove",
+    "cloudStorageRemoveMany",
+    "cloudStorageKeys",
+    "deviceStorageSet",
+    "deviceStorageGet",
+    "deviceStorageRemove",
+    "deviceStorageClear",
+    "secureStorageSet",
+    "secureStorageGet",
+    "secureStorageRestore",
+    "secureStorageRemove",
+    "secureStorageClear",
+  ];
+  const capabilities = [
+    "ready",
+    "close",
+    "expand",
+    "fullscreen",
+    "hideKeyboard",
+    "orientation",
+    "backButton",
+    "mainButton",
+    "secondaryButton",
+    "settingsButton",
+    "closingConfirmation",
+    "headerColor",
+    "backgroundColor",
+    "bottomBarColor",
+    "haptics",
+    "popup",
+    "openLink",
+    "sendData",
+    "switchInlineQuery",
+    "clipboard",
+    "location",
+    "biometry",
+    "sensors",
+    "downloadFile",
+    "qrScanner",
+    "requestWriteAccess",
+    "requestContact",
+    "shareMessage",
+    "cloudStorage",
+    "deviceStorage",
+    "secureStorage",
+  ];
+  const host = nativePort({ operations, capabilities });
+  const adapter = createNativeAdapter({ LO: { MiniAppNative: host.port } });
+  assert.deepEqual(new Set(adapter.nativeOperations), new Set(operations));
+  assert.deepEqual(new Set(adapter.capabilities), new Set(capabilities));
+  assert.equal(adapter.capabilities.has("shareToStory"), false);
+  assert.equal(adapter.capabilities.has("invoice"), false);
+});
+
+test("close and selection haptic cross the canonical native port", async () => {
+  const host = nativePort({
+    operations: ["close", "haptic"],
+    capabilities: ["close", "haptics"],
+  });
+  const client = createMiniAppClient(
+    createNativeAdapter({ LO: { MiniAppNative: host.port } }),
+  );
+  const closing = client.call("close", undefined);
+  result(host, host.messages[0], { ok: true, value: null });
+  await closing;
+  const selecting = client.call("haptic", { kind: "selection" });
+  assert.deepEqual(host.messages[1].input, { kind: "selection" });
+  result(host, host.messages[1], { ok: true, value: null });
+  await selecting;
+});
+
+test("legacy selection uses selectionChanged without an impact argument", async () => {
+  const calls = [];
+  const adapter = createAdapter({
+    LO: {
+      WebApp: {
+        initData: "legacy",
+        capabilities: ["haptics"],
+        HapticFeedback: {
+          selectionChanged: (...args) => calls.push(args),
+        },
+      },
+    },
+  });
+  await createMiniAppClient(adapter).call("haptic", { kind: "selection" });
+  assert.deepEqual(calls, [[]]);
+});
+
+test("partial button hosts advertise and enforce each button capability", async () => {
+  const host = nativePort({
+    operations: ["setButton"],
+    capabilities: ["mainButton"],
+  });
+  const adapter = createNativeAdapter({ LO: { MiniAppNative: host.port } });
+  const client = createMiniAppClient(adapter);
+  assert.deepEqual([...adapter.capabilities], ["mainButton"]);
+  assert.deepEqual([...adapter.nativeOperations], ["setButton"]);
+
+  const main = client.call("setButton", {
+    button: "main",
+    params: { text: "Continue" },
+  });
+  result(host, host.messages.at(-1), { ok: true, value: null });
+  assert.equal(await main, undefined);
+
+  await assert.rejects(
+    client.call("setButton", { button: "back", params: { visible: true } }),
+    { code: "unsupported" },
+  );
+  assert.equal(host.messages.length, 1);
+});
+
+test("hybrid partial button hosts route each button to its capable transport", async () => {
+  const host = nativePort({
+    operations: ["setButton"],
+    capabilities: ["backButton"],
+  });
+  const legacyCalls = [];
+  const adapter = createAdapter({
+    LO: {
+      MiniAppNative: host.port,
+      WebApp: {
+        initData: "signed-launch",
+        capabilities: ["mainButton"],
+        MainButton: {
+          setParams(params) {
+            legacyCalls.push(params);
+          },
+        },
+      },
+    },
+  });
+  const client = createMiniAppClient(adapter);
+
+  await client.call("setButton", {
+    button: "main",
+    params: { text: "Legacy main" },
+  });
+  assert.equal(host.messages.length, 0);
+  assert.equal(legacyCalls[0].text, "Legacy main");
+
+  const back = client.call("setButton", {
+    button: "back",
+    params: { visible: true },
+  });
+  result(host, host.messages.at(-1), { ok: true, value: null });
+  await back;
+  assert.equal(host.messages.length, 1);
+});
+
+test("modern canonical-only host operates without a legacy WebApp global", async () => {
+  const host = nativePort({
+    operations: ["setBackgroundColor"],
+    capabilities: ["backgroundColor"],
+    events: ["themeChanged"],
+    canonicalSnapshot: true,
+  });
+  const adapter = createAdapter({ LO: { MiniAppNative: host.port } });
+  const client = createMiniAppClient(adapter);
+  assert.equal(adapter.id, "lo");
+  assert.equal(adapter.snapshot().colorScheme, "dark");
+
+  let themes = 0;
+  const off = client.on("themeChanged", () => {
+    themes += 1;
+  });
+  const pending = client.call("setBackgroundColor", { color: "#123456" });
+  result(host, host.messages.at(-1), { ok: true, value: null });
+  await pending;
+  host.emit(
+    baseEnvelope(host.port.generation, {
+      kind: "event",
+      event: "themeChanged",
+      payload: {
+        colorScheme: "dark",
+        theme: { background: "#123456", ignored: "secret" },
+      },
+    }),
+  );
+  assert.equal(themes, 1);
+  off();
+});
+
+test("structured results are validated and projected", async () => {
+  const host = nativePort({
+    operations: ["getLocation", "getBiometryInfo", "secureStorageGet"],
+    capabilities: ["location", "biometry", "secureStorage"],
+  });
+  const client = createMiniAppClient(
+    createNativeAdapter({ LO: { MiniAppNative: host.port } }),
+  );
+
+  const location = client.call("getLocation", undefined);
+  result(host, host.messages.at(-1), {
+    ok: true,
+    value: {
+      latitude: 55.75,
+      longitude: 37.62,
+      altitude: null,
+      course: null,
+      speed: null,
+      horizontalAccuracy: 5,
+      verticalAccuracy: null,
+      courseAccuracy: null,
+      speedAccuracy: null,
+      secret: "discarded",
+    },
+  });
+  assert.deepEqual(await location, {
+    latitude: 55.75,
+    longitude: 37.62,
+    altitude: null,
+    course: null,
+    speed: null,
+    horizontalAccuracy: 5,
+    verticalAccuracy: null,
+    courseAccuracy: null,
+    speedAccuracy: null,
+  });
+
+  const biometry = client.call("getBiometryInfo", undefined);
+  result(host, host.messages.at(-1), {
+    ok: true,
+    value: {
+      available: true,
+      type: "face",
+      accessRequested: true,
+      accessGranted: true,
+      tokenSaved: false,
+      deviceId: "device",
+      secret: "discarded",
+    },
+  });
+  assert.deepEqual(await biometry, {
+    available: true,
+    type: "face",
+    accessRequested: true,
+    accessGranted: true,
+    tokenSaved: false,
+    deviceId: "device",
+  });
+
+  const malformed = client.call("secureStorageGet", { key: "session" });
+  result(host, host.messages.at(-1), {
+    ok: true,
+    value: { value: 7, canRestore: true },
+  });
+  await assert.rejects(malformed, { code: "invalid-response" });
+});
+
 test("write-access results are strict booleans and host errors are mapped", async () => {
   const host = nativePort();
   const adapter = createNativeAdapter({ LO: { MiniAppNative: host.port } });
@@ -300,6 +592,8 @@ test("abort sends one cancel for a pending request and retained callbacks stay i
 test("malformed, foreign and late lifecycle envelopes do not reach listeners", () => {
   let releaseCalls = 0;
   const host = nativePort({
+    events: ["activated", "themeChanged"],
+    canonicalSnapshot: true,
     subscribe(listener) {
       host.retained.push(listener);
       host.listeners.add(listener);
@@ -360,9 +654,20 @@ test("malformed, foreign and late lifecycle envelopes do not reach listeners", (
   }
   assert.equal(activations, 1);
   assert.equal(secondListener, 1);
-  assert.throws(() => adapter.subscribe("themeChanged", () => {}), {
-    code: "unsupported",
+  let themes = 0;
+  const offTheme = adapter.subscribe("themeChanged", (snapshot) => {
+    themes += 1;
+    assert.equal(snapshot.colorScheme, "dark");
   });
+  host.emit(
+    baseEnvelope(host.port.generation, {
+      kind: "event",
+      event: "themeChanged",
+      payload: { colorScheme: "dark" },
+    }),
+  );
+  assert.equal(themes, 1);
+  offTheme();
 });
 
 test("request setup and encoding failures settle without sending or retaining callbacks", async () => {

@@ -23,7 +23,7 @@ const run = (file, args, cwd = root) =>
 const packages = ["compat", "lo", "telegram", "bot-http-lo", "vk"];
 try {
   const archives = [
-    join(root, "vendor/lo-ink-miniapp-sdk-0.19.0.tgz"),
+    join(root, "vendor/lo-ink-miniapp-sdk-0.19.1.tgz"),
     join(root, "packages/bot-http-lo/vendor/lo-ink-bot-sdk-0.1.0.tgz"),
   ];
   for (const folder of packages) {

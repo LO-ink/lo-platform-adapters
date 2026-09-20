@@ -12,6 +12,7 @@ export type TelegramDocument = Pick<Document, "createElement" | "head">;
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
 const capabilityVersions: Record<Capability, string> = {
+  close: "6.0",
   requestWriteAccess: "6.9",
   requestContact: "6.9",
   shareMessage: "8.0",
