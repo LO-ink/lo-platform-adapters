@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
 import { createAdapter, createNativeAdapter } from "../dist/index.js";
+import { createAdapter as createLegacyAdapter } from "../../lo-legacy/dist/index.js";
 
 const baseEnvelope = (generation, fields) => ({
   channel: "lo.miniapp",
@@ -77,6 +78,26 @@ function result(host, request, fields) {
     }),
   );
 }
+
+test("default LO discovery never inspects or composes a compatibility global", () => {
+  const host = nativePort({ operations: ["ready"], capabilities: ["ready"] });
+  const scope = {
+    LO: {
+      MiniAppNative: host.port,
+      get WebApp() {
+        throw new Error("Native discovery must not inspect compatibility");
+      },
+    },
+  };
+  const adapter = createAdapter(scope);
+  assert.equal(adapter.id, "lo");
+  assert.deepEqual([...adapter.capabilities], ["ready"]);
+  assert.equal(createAdapter({ LO: { WebApp: { initData: "legacy" } } }), null);
+  assert.equal(
+    createAdapter({ Telegram: { WebApp: { initData: "foreign" } } }),
+    null,
+  );
+});
 
 test("canonical discovery derives only implemented and jointly advertised capabilities", async () => {
   const host = nativePort({
@@ -228,7 +249,7 @@ test("close and selection haptic cross the canonical native port", async () => {
 
 test("legacy selection uses selectionChanged without an impact argument", async () => {
   const calls = [];
-  const adapter = createAdapter({
+  const adapter = createLegacyAdapter({
     LO: {
       WebApp: {
         initData: "legacy",
@@ -273,7 +294,7 @@ test("hybrid partial button hosts route each button to its capable transport", a
     capabilities: ["backButton"],
   });
   const legacyCalls = [];
-  const adapter = createAdapter({
+  const adapter = createLegacyAdapter({
     LO: {
       MiniAppNative: host.port,
       WebApp: {
@@ -483,7 +504,7 @@ test("matching legacy sessions compose fallback operations and live appearance",
       legacyListeners.delete(name);
     },
   };
-  const adapter = createAdapter({
+  const adapter = createLegacyAdapter({
     LO: { MiniAppNative: host.port, WebApp: legacy },
   });
   assert.equal(adapter.id, "lo");
@@ -540,7 +561,7 @@ test("matching legacy sessions compose fallback operations and live appearance",
 
 test("different launch sessions never compose and legacy-only identity is preserved", () => {
   const host = nativePort();
-  const mismatched = createAdapter({
+  const mismatched = createLegacyAdapter({
     LO: {
       MiniAppNative: host.port,
       WebApp: { initData: "different", capabilities: ["location"] },
@@ -549,7 +570,7 @@ test("different launch sessions never compose and legacy-only identity is preser
   assert.equal(mismatched.id, "lo");
   assert.equal(mismatched.capabilities.has("location"), false);
 
-  const legacyOnly = createAdapter({
+  const legacyOnly = createLegacyAdapter({
     LO: { WebApp: { initData: "legacy", capabilities: [] } },
   });
   assert.equal(legacyOnly.id, "lo-legacy-webapp");

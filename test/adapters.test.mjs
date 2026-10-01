@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "../packages/lo/dist/index.js";
+import { createAdapter as createLoAdapter } from "../packages/lo-legacy/dist/index.js";
 import {
   createAdapter as createTelegramAdapter,
   isVersionAtLeast,

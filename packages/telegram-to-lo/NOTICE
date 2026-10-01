@@ -1,0 +1,2 @@
+This explicit bridge delegates to the compatibility API provided by the LO host.
+It does not include or download third-party runtime code.

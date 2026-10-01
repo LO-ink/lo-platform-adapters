@@ -4,9 +4,10 @@ import {
   requestWriteAccess,
 } from "@lo-ink/miniapp-sdk";
 import { createAdapter as createLoAdapter } from "@lo-ink/adapter-lo";
+import { loadAdapter as loadTelegramAdapter } from "@lo-ink/adapter-telegram";
 
-const adapter = createLoAdapter();
-if (!adapter) throw new Error("Open this Mini App inside LO");
+const adapter = createLoAdapter() ?? (await loadTelegramAdapter());
+if (!adapter) throw new Error("Open this Mini App inside a supported host");
 
 const client = createMiniAppClient(adapter);
 const media = matchMedia("(prefers-color-scheme: dark)");

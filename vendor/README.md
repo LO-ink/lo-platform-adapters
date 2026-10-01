@@ -1,11 +1,13 @@
-# Vendored development dependency
+# Development SDK artifact
 
-`lo-ink-miniapp-sdk-0.19.0.tgz` was packed from https://github.com/LO-ink/lo-miniapp-sdk at `d3951af29fc6b1ad063f9dcf29764d40cca7d40d`. MIT licensed. This pinned development archive makes standalone CI reproducible. Runtime consumers supply the SDK peer dependency.
+The active development dependency is `lo-ink-miniapp-sdk-0.19.2.tgz`, packed
+from [SDK commit `707d51b898cf28e7b8a149c5c130f16ee6228b3f`](https://github.com/LO-ink/lo-miniapp-sdk/commit/707d51b898cf28e7b8a149c5c130f16ee6228b3f).
+It contains the built public package, declarations, documentation and MIT
+license. SDK 0.19.2 is a prepared artifact, not a claim of npm publication.
+Runtime consumers provide the SDK peer dependency.
 
-SHA-256: `73052e6bce982ba7ea018011a62ea3310db225ee21e427167ae9db75d017aa26`
+SHA-256: `acdb2e87a2afc895e130fb81f56b4723bbe2578a877e3c78f39b50d4e894fa4e`
 
-`lo-ink-miniapp-sdk-0.19.1.tgz` is the local Phase 2 release-candidate
-artifact built from [SDK source `0b4ae5af0c4d265cf17d67f06094c19fead1f52d`](https://github.com/lo-ink/lo-miniapp-sdk/commit/0b4ae5af0c4d265cf17d67f06094c19fead1f52d).
-Its contents match that source build byte-for-byte. Not published to npm. MIT licensed.
-
-SHA-256: `033b9a4d36bad0041d6c1a225703db8190eee5c4fec67fb816d426b0ca5164b7`
+The 0.19.0 and 0.19.1 archives are historical migration evidence, not the active
+development dependency. SDK 0.19.1 was published during the previous release;
+its earlier candidate annotation must not be read as its current registry state.
