@@ -25,8 +25,10 @@ message; stale document results cannot settle a current request.
 
 The supported protocol includes chrome, appearance, fullscreen, orientation,
 haptics, popups, links, inline queries, clipboard, location, biometry, sensors,
-file downloads, QR, permissions, contact/prepared-message sharing and storage.
-The current decoder does not advertise invoice or story sharing. Actual
+file downloads, QR, permissions, contact/prepared-message sharing, story
+presentation, vertical dismissal controls and storage. Story/swipe operations
+require the corresponding LO host rollout; earlier ports omit them.
+The current decoder does not advertise invoices. Actual
 availability still depends on the running LO client, device and permission.
 
 ## Migration from 0.21

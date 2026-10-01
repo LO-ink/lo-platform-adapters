@@ -4,9 +4,11 @@
 
 1. SDK `@lo-ink/miniapp-sdk` 0.19.2: lifecycle fixes and distribution guards.
 2. Native `@lo-ink/adapter-lo` 0.22.0: no automatic legacy composition.
-3. `@lo-ink/adapter-lo-legacy` 0.1.0 and
+3. Compatibility and outbound Telegram adapters 0.19.2 add conservative typed
+   swipe controls.
+4. `@lo-ink/adapter-lo-legacy` 0.1.0 and
    `@lo-ink/adapter-telegram-to-lo` 0.1.0: explicit migration integrations.
-4. Update consumer lockfiles after registry artifacts and required host behavior
+5. Update consumer lockfiles after registry artifacts and required host behavior
    are verified. Existing 0.21 consumers remain supported during migration.
 
 These are prepared package versions. Passing CI or merging these sources does
@@ -36,5 +38,6 @@ infer identity from a browser global or strip/rewrite signed bytes.
 
 The inbound bridge does not emulate all foreign methods. Native snapshot/event
 coverage depends on the host port, and the native decoder does not currently
-advertise story sharing or invoices. Use explicit older-host support when
+advertise invoices. Story/swipe controls require the associated LO host rollout;
+older ports omit them. Use explicit older-host support when
 necessary; record any missing native feature instead of claiming parity.

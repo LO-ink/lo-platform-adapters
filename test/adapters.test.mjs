@@ -643,3 +643,40 @@ test("sensor start does not acquire a manager already running for another caller
   client.dispose();
   assert.equal(calls, 0);
 });
+
+test("canonical swipe controls retain conservative compatibility gates", async () => {
+  for (const version of ["7.6", "7.7"]) {
+    const calls = [];
+    const webApp = {
+      initData: "signed",
+      version,
+      enableVerticalSwipes() {
+        calls.push(true);
+      },
+      disableVerticalSwipes() {
+        calls.push(false);
+      },
+    };
+    const adapter = createTelegramAdapter({ Telegram: { WebApp: webApp } });
+    assert.equal(adapter.capabilities.has("verticalSwipes"), version === "7.7");
+    const client = createMiniAppClient(adapter);
+    if (version === "7.7") {
+      await client.call("setVerticalSwipes", { enabled: false });
+      await client.call("setVerticalSwipes", { enabled: true });
+      assert.deepEqual(calls, [false, true]);
+    } else
+      await assert.rejects(
+        client.call("setVerticalSwipes", { enabled: false }),
+        { code: "unsupported" },
+      );
+    client.dispose();
+  }
+  const missing = createTelegramAdapter({
+    Telegram: { WebApp: { initData: "signed", version: "99.0" } },
+  });
+  assert.equal(missing.capabilities.has("verticalSwipes"), false);
+  const legacy = createLoAdapter({
+    LO: { WebApp: { initData: "signed", capabilities: ["verticalSwipes"] } },
+  });
+  assert.equal(legacy.capabilities.has("verticalSwipes"), false);
+});

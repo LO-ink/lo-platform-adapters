@@ -798,3 +798,30 @@ test("invalid ports fall back safely and later invalid snapshots preserve the la
     viewportHeight: 500,
   });
 });
+
+test("shipped story and swipe controls cross only the own native port", async () => {
+  const host = nativePort({
+    operations: ["shareToStory", "setVerticalSwipes"],
+    capabilities: ["shareToStory", "verticalSwipes"],
+  });
+  const adapter = createAdapter({ LO: { MiniAppNative: host.port } });
+  const client = createMiniAppClient(adapter);
+  assert.equal(client.supports("shareToStory"), true);
+  assert.equal(client.supports("verticalSwipes"), true);
+  for (const [operation, input] of [
+    ["setVerticalSwipes", { enabled: false }],
+    [
+      "shareToStory",
+      {
+        mediaUrl: "https://cdn.example/story.jpg",
+        params: { text: "Caption" },
+      },
+    ],
+  ]) {
+    const pending = client.call(operation, input);
+    assert.deepEqual(host.messages.at(-1).input, input);
+    result(host, host.messages.at(-1), { ok: true, value: null });
+    assert.equal(await pending, undefined);
+  }
+  client.dispose();
+});

@@ -28,7 +28,7 @@
     "@lo-ink/miniapp-sdk": "^0.19.2"
   },
   "dependencies": {
-    "@lo-ink/adapter-webapp-compat": "0.19.1"
+    "@lo-ink/adapter-webapp-compat": "0.19.2"
   },
   "engines": {
     "node": ">=20"

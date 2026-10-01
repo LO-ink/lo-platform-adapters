@@ -36,6 +36,7 @@ const capabilityVersions: Record<Capability, string> = {
   secondaryButton: "7.10",
   settingsButton: "7.0",
   closingConfirmation: "6.2",
+  verticalSwipes: "7.7",
   headerColor: "6.9",
   backgroundColor: "6.1",
   bottomBarColor: "7.10",
@@ -120,7 +121,10 @@ export function createAdapter(
   ][]) {
     if (
       isVersionAtLeast(webApp.version, version) &&
-      (capability !== "invoice" || typeof webApp.openInvoice === "function")
+      (capability !== "invoice" || typeof webApp.openInvoice === "function") &&
+      (capability !== "verticalSwipes" ||
+        (typeof webApp.enableVerticalSwipes === "function" &&
+          typeof webApp.disableVerticalSwipes === "function"))
     ) {
       capabilities.add(capability);
     }

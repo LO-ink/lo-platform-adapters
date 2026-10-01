@@ -117,7 +117,11 @@ export function webAppCapabilities(
   return new Set(
     (webApp.capabilities ?? []).filter(
       (value): value is Capability =>
-        typeof value === "string" && known.has(value),
+        typeof value === "string" &&
+        known.has(value) &&
+        (value !== "verticalSwipes" ||
+          (method(webApp, "enableVerticalSwipes") &&
+            method(webApp, "disableVerticalSwipes"))),
     ),
   );
 }
@@ -320,6 +324,11 @@ function execute(
       return command(
         webApp,
         input.locked ? "lockOrientation" : "unlockOrientation",
+      );
+    case "setVerticalSwipes":
+      return command(
+        webApp,
+        input.enabled ? "enableVerticalSwipes" : "disableVerticalSwipes",
       );
     case "setClosingConfirmation":
       return command(
