@@ -22,6 +22,21 @@ type Installation = {
 };
 const installations = new WeakMap<object, Installation>();
 
+function sameDescriptor(
+  current: PropertyDescriptor | undefined,
+  installed: PropertyDescriptor,
+): boolean {
+  return (
+    !!current &&
+    current.value === installed.value &&
+    current.get === installed.get &&
+    current.set === installed.set &&
+    current.writable === installed.writable &&
+    current.enumerable === installed.enumerable &&
+    current.configurable === installed.configurable
+  );
+}
+
 /**
  * Opt-in bridge for an existing WebApp application running inside LO.
  * No script loading, API emulation, version inflation, or import-time mutation.
@@ -84,9 +99,24 @@ export function installTelegramCompatibility(
       configurable: true,
       writable: true,
     });
+    const installed = Object.getOwnPropertyDescriptor(target, property)!;
+    const installedWebApp = Object.getOwnPropertyDescriptor(
+      container,
+      "WebApp",
+    )!;
     const owns = () => {
       try {
-        return scope.Telegram === container && container.WebApp === source;
+        return (
+          sameDescriptor(
+            Object.getOwnPropertyDescriptor(target, property),
+            installed,
+          ) &&
+          sameDescriptor(
+            Object.getOwnPropertyDescriptor(container, "WebApp"),
+            installedWebApp,
+          ) &&
+          scope.Telegram === container
+        );
       } catch {
         return false;
       }

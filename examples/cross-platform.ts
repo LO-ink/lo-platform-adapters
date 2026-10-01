@@ -4,9 +4,28 @@ import {
   requestWriteAccess,
 } from "@lo-ink/miniapp-sdk";
 import { createAdapter as createLoAdapter } from "@lo-ink/adapter-lo";
+import { createAdapter as createLegacyLoAdapter } from "@lo-ink/adapter-lo-legacy";
 import { loadAdapter as loadTelegramAdapter } from "@lo-ink/adapter-telegram";
 
-const adapter = createLoAdapter() ?? (await loadTelegramAdapter());
+// Set data-miniapp-host on the entry document to an explicitly deployed host.
+// Host selection is configuration, never identity verification.
+async function selectAdapter(host: string | undefined) {
+  switch (host) {
+    case "lo-native":
+      return createLoAdapter();
+    case "lo-legacy":
+      return createLegacyLoAdapter();
+    case "telegram":
+      return loadTelegramAdapter();
+    default:
+      throw new Error(
+        "Configure data-miniapp-host: lo-native, lo-legacy or telegram",
+      );
+  }
+}
+const adapter = await selectAdapter(
+  document.documentElement.dataset.miniappHost,
+);
 if (!adapter) throw new Error("Open this Mini App inside a supported host");
 
 const client = createMiniAppClient(adapter);

@@ -42,3 +42,8 @@ retains the historical migration inventory.
 The bot migration suites use actual pinned Telegraf/grammY and aiogram clients
 against a loopback HTTP recorder. They verify request contracts, not every
 production server method. Hosted acceptance remains separate evidence.
+
+`examples/vanilla.ts` is native LO only. The optional cross-platform example
+requires `data-miniapp-host="lo-native"`, `"lo-legacy"` or `"telegram"` on its
+entry document. It loads the external host script only for the explicit Telegram
+entrypoint; missing native support inside LO never selects another provider.

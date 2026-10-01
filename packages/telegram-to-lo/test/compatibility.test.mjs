@@ -165,3 +165,46 @@ test("mutating launch data in place invalidates an active lease", () => {
   lease.dispose();
   assert.equal(Object.hasOwn(scope, "Telegram"), false);
 });
+
+test("same-value getters installed by another owner survive disposal", () => {
+  for (const existingNamespace of [false, true]) {
+    for (const property of ["Telegram", "WebApp"]) {
+      const source = webApp();
+      const scope = { LO: { WebApp: source } };
+      if (existingNamespace) scope.Telegram = {};
+      const lease = installTelegramCompatibility(scope);
+      const container = scope.Telegram;
+      const target = property === "Telegram" ? scope : container;
+      const replacement = {
+        get: () => (property === "Telegram" ? container : source),
+        configurable: true,
+        enumerable: false,
+      };
+      Object.defineProperty(target, property, replacement);
+      const descriptor = Object.getOwnPropertyDescriptor(target, property);
+      if (property === "WebApp" || !existingNamespace) {
+        assert.equal(lease.installed, false);
+        assert.throws(() => installTelegramCompatibility(scope));
+      }
+      lease.dispose();
+      assert.deepEqual(
+        Object.getOwnPropertyDescriptor(target, property),
+        descriptor,
+      );
+    }
+  }
+});
+
+test("same-value descriptor flag changes invalidate ownership without being restored", () => {
+  const scope = { LO: { WebApp: webApp() } };
+  const lease = installTelegramCompatibility(scope);
+  Object.defineProperty(scope.Telegram, "WebApp", { writable: false });
+  const replacement = Object.getOwnPropertyDescriptor(scope.Telegram, "WebApp");
+  assert.equal(lease.installed, false);
+  assert.throws(() => installTelegramCompatibility(scope));
+  lease.dispose();
+  assert.deepEqual(
+    Object.getOwnPropertyDescriptor(scope.Telegram, "WebApp"),
+    replacement,
+  );
+});
