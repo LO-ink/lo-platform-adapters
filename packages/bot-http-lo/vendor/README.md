@@ -1,5 +1,5 @@
 # Vendored development dependency
 
-`lo-ink-bot-sdk-0.1.0.tgz` was packed from https://github.com/LO-ink/lo-bot-sdk at `7fc98dbe30c2a8baf3a9365f6523335778bf7215`. MIT licensed. This pinned development archive makes standalone CI reproducible. Runtime consumers supply the SDK peer dependency.
+`lo-ink-bot-sdk-0.2.0.tgz` is the local secretary 0.2 build from the isolated SDK worktree, based on `2d914a35245852b9f859e0ada21e5dc3550e9fb4`. It is not published yet. The final source commit must be recorded during the coordinated release. MIT licensed. Runtime consumers provide `@lo-ink/bot-sdk ^0.2.0`.
 
-SHA-256: `6bf6bb7cf17b87a165c0a853db44922932607ca14005b7d729490f6349d5814e`
+SHA-256: `95a897b7b59f25888639297001c927f242a52f5e998d17499104ed114d196329`

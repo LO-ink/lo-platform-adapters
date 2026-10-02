@@ -5,29 +5,26 @@ import {
   type BotIdentity,
   type BotOperations,
   type BotTransport,
+  type SecretaryOperations,
+  type SecretaryTransport,
   type BotUpdate,
   type Message,
 } from "@lo-ink/bot-sdk";
 
+import { parseLosslessJson } from "./lossless-json.js";
+
+import {
+  decodeSecretaryUpdate,
+  normalizeSecretaryResult,
+  wireSecretaryRequest,
+} from "./secretary.js";
+
 const defaultBaseUrl = "https://api.lo.ink";
 const maxResponseBytes = 2 << 20;
-const tokenPattern = /^[1-9][0-9]*:[A-Za-z0-9_-]+$/;
 const integerPattern = /^-?(?:0|[1-9][0-9]*)$/;
+const tokenPattern = /^[1-9][0-9]*:[A-Za-z0-9_-]+$/;
 const commandPattern = /^[a-z0-9_]{1,32}$/;
 const chatTypes = new Set(["private", "group", "supergroup", "channel"]);
-
-type JsonPrimitiveContext = { readonly source: string };
-type LosslessJsonParse = (
-  text: string,
-  reviver: (
-    this: unknown,
-    key: string,
-    value: unknown,
-    context?: JsonPrimitiveContext,
-  ) => unknown,
-) => unknown;
-
-const losslessJsonParse = JSON.parse as LosslessJsonParse;
 
 export interface LoHttpBotTransportOptions {
   /** Secret bot credential. Keep this transport on the application server. */
@@ -91,18 +88,7 @@ function normalizeBaseUrl(
 
 function parseJson(text: string): unknown {
   try {
-    return losslessJsonParse(text, (_key, value, context) => {
-      if (
-        typeof value === "number" &&
-        Number.isInteger(value) &&
-        !Number.isSafeInteger(value) &&
-        context &&
-        integerPattern.test(context.source)
-      ) {
-        return context.source;
-      }
-      return value;
-    });
+    return parseLosslessJson(text);
   } catch {
     throw new HttpBotError(
       "invalid-response",
@@ -222,15 +208,29 @@ function commands(value: unknown): readonly BotCommand[] {
 
 function updates(value: unknown): readonly BotUpdate[] {
   if (!Array.isArray(value)) throw invalidResult();
-  return value.map((item) => {
-    const object = record(item);
-    const id = identifier(object?.update_id, true);
-    if (!object || !id) throw invalidResult();
-    if (Object.hasOwn(object, "message")) {
-      return { id, kind: "message", message: message(object.message) };
-    }
-    return { id, kind: "unhandled" };
-  });
+  return value.map(decodeLoBotUpdate);
+}
+
+/** Normalize a verified webhook or poll update. Never authenticates the sender. */
+export function decodeLoBotUpdate(value: unknown): BotUpdate {
+  const object = record(value);
+  const id = identifier(object?.update_id, true);
+  if (!object || !id) throw invalidResult();
+  const delegated = decodeSecretaryUpdate(object, id);
+  if (delegated) return delegated;
+  if (Object.hasOwn(object, "message"))
+    return { id, kind: "message", message: message(object.message) };
+  return { id, kind: "unhandled" };
+}
+
+/** Parse the bounded, authenticated webhook body without losing 64-bit IDs. */
+export function parseLoBotWebhookUpdate(body: string): BotUpdate {
+  if (
+    typeof body !== "string" ||
+    new TextEncoder().encode(body).length > maxResponseBytes
+  )
+    throw invalidResult();
+  return decodeLoBotUpdate(parseJson(body));
 }
 
 function wireRequest<K extends keyof BotOperations>(
@@ -440,7 +440,7 @@ function normalizeResult<K extends keyof BotOperations>(
 /** Create the LO Bot API HTTP transport. No request is retried implicitly. */
 export function createLoHttpBotTransport(
   options: LoHttpBotTransportOptions,
-): BotTransport {
+): BotTransport & SecretaryTransport {
   if (!options || typeof options !== "object") {
     throw configurationError("Transport options are required.");
   }
@@ -457,126 +457,149 @@ export function createLoHttpBotTransport(
     throw configurationError("A fetch implementation is required.");
   }
 
+  async function executeHttp(
+    request: { method: string; body: Record<string, unknown> },
+    requestOptions: { signal: AbortSignal },
+  ): Promise<unknown> {
+    if (requestOptions.signal.aborted) {
+      throw new HttpBotError("aborted", "Request aborted.");
+    }
+    let response: Response;
+    try {
+      response = await fetchImplementation(
+        `${baseUrl}bot${token}/${request.method}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(request.body),
+          redirect: "manual",
+          signal: requestOptions.signal,
+        },
+      );
+    } catch {
+      if (requestOptions.signal.aborted) {
+        throw new HttpBotError("aborted", "Request aborted.");
+      }
+      throw new HttpBotError(
+        "transport",
+        "LO Bot API request failed before receiving a response.",
+      );
+    }
+
+    if (response.status >= 300 && response.status < 400) {
+      try {
+        await response.body?.cancel();
+      } catch {
+        /* Preserve the sanitized redirect failure. */
+      }
+      throw new HttpBotError(
+        "transport",
+        "LO Bot API refused an HTTP redirect.",
+        response.status,
+        response.status,
+      );
+    }
+
+    let text: string;
+    try {
+      text = await responseText(response);
+    } catch (error) {
+      if (error instanceof HttpBotError) throw error;
+      if (requestOptions.signal.aborted) {
+        throw new HttpBotError("aborted", "Request aborted.");
+      }
+      throw new HttpBotError(
+        "transport",
+        "LO Bot API response could not be read.",
+        response.status,
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = parseJson(text);
+    } catch (error) {
+      if (!response.ok) {
+        const code = canonicalCode(response.status);
+        throw new HttpBotError(
+          code,
+          errorMessage(code),
+          response.status,
+          response.status,
+          retryAfter(null, response),
+        );
+      }
+      if (error instanceof HttpBotError) {
+        throw new HttpBotError(
+          error.code,
+          error.message,
+          response.status,
+          response.status,
+        );
+      }
+      throw error;
+    }
+    const envelope = record(parsed);
+    if (!envelope || typeof envelope.ok !== "boolean") {
+      throw new HttpBotError(
+        "invalid-response",
+        "LO Bot API returned an invalid response envelope.",
+        response.status,
+      );
+    }
+    const platformCode =
+      positiveInteger(envelope?.error_code) ?? response.status;
+    if (!response.ok || envelope?.ok !== true) {
+      if (platformCode < 400) {
+        throw new HttpBotError(
+          "invalid-response",
+          "LO Bot API returned an invalid error envelope.",
+          response.status,
+        );
+      }
+      const code = canonicalCode(platformCode);
+      throw new HttpBotError(
+        code,
+        errorMessage(code),
+        response.status,
+        platformCode,
+        retryAfter(envelope, response),
+      );
+    }
+    if (!Object.hasOwn(envelope, "result") || envelope.result === null) {
+      throw new HttpBotError(
+        "invalid-response",
+        "LO Bot API response contained no result.",
+        response.status,
+      );
+    }
+    return envelope.result;
+  }
   return {
     async execute<K extends keyof BotOperations>(
       operation: K,
       input: BotOperations[K]["input"],
       requestOptions: { signal: AbortSignal },
     ): Promise<BotOperations[K]["output"]> {
-      if (requestOptions.signal.aborted) {
-        throw new HttpBotError("aborted", "Request aborted.");
-      }
-      const request = wireRequest(operation, input);
-      let response: Response;
-      try {
-        response = await fetchImplementation(
-          `${baseUrl}bot${token}/${request.method}`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(request.body),
-            redirect: "manual",
-            signal: requestOptions.signal,
-          },
-        );
-      } catch {
-        if (requestOptions.signal.aborted) {
-          throw new HttpBotError("aborted", "Request aborted.");
-        }
-        throw new HttpBotError(
-          "transport",
-          "LO Bot API request failed before receiving a response.",
-        );
-      }
-
-      if (response.status >= 300 && response.status < 400) {
-        try {
-          await response.body?.cancel();
-        } catch {
-          /* Preserve the sanitized redirect failure. */
-        }
-        throw new HttpBotError(
-          "transport",
-          "LO Bot API refused an HTTP redirect.",
-          response.status,
-          response.status,
-        );
-      }
-
-      let text: string;
-      try {
-        text = await responseText(response);
-      } catch (error) {
-        if (error instanceof HttpBotError) throw error;
-        if (requestOptions.signal.aborted) {
-          throw new HttpBotError("aborted", "Request aborted.");
-        }
-        throw new HttpBotError(
-          "transport",
-          "LO Bot API response could not be read.",
-          response.status,
-        );
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = parseJson(text);
-      } catch (error) {
-        if (!response.ok) {
-          const code = canonicalCode(response.status);
-          throw new HttpBotError(
-            code,
-            errorMessage(code),
-            response.status,
-            response.status,
-            retryAfter(null, response),
-          );
-        }
-        if (error instanceof HttpBotError) {
-          throw new HttpBotError(
-            error.code,
-            error.message,
-            response.status,
-            response.status,
-          );
-        }
-        throw error;
-      }
-      const envelope = record(parsed);
-      if (!envelope || typeof envelope.ok !== "boolean") {
-        throw new HttpBotError(
-          "invalid-response",
-          "LO Bot API returned an invalid response envelope.",
-          response.status,
-        );
-      }
-      const platformCode =
-        positiveInteger(envelope?.error_code) ?? response.status;
-      if (!response.ok || envelope?.ok !== true) {
-        if (platformCode < 400) {
-          throw new HttpBotError(
-            "invalid-response",
-            "LO Bot API returned an invalid error envelope.",
-            response.status,
-          );
-        }
-        const code = canonicalCode(platformCode);
-        throw new HttpBotError(
-          code,
-          errorMessage(code),
-          response.status,
-          platformCode,
-          retryAfter(envelope, response),
-        );
-      }
-      if (!Object.hasOwn(envelope, "result") || envelope.result === null) {
-        throw new HttpBotError(
-          "invalid-response",
-          "LO Bot API response contained no result.",
-          response.status,
-        );
-      }
-      return normalizeResult(operation, input, envelope.result);
+      return normalizeResult(
+        operation,
+        input,
+        await executeHttp(wireRequest(operation, input), requestOptions),
+      );
+    },
+    async executeSecretary<K extends keyof SecretaryOperations>(
+      operation: K,
+      input: SecretaryOperations[K]["input"],
+      requestOptions: { signal: AbortSignal },
+    ): Promise<SecretaryOperations[K]["output"]> {
+      return normalizeSecretaryResult(
+        operation,
+        input,
+        await executeHttp(
+          wireSecretaryRequest(operation, input),
+          requestOptions,
+        ),
+      );
     },
   };
 }
