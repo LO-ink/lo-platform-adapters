@@ -1,6 +1,6 @@
 # `@lo-ink/adapter-lo`
 
-Native LO integration for `@lo-ink/miniapp-sdk`. Version 0.22 discovers only
+Native LO integration for `@lo-ink/miniapp-sdk`. Version 0.23 requires miniapp-sdk 0.20 and discovers only
 `LO.MiniAppNative` and speaks the LO-owned, versioned JSON protocol. There is no
 compatibility dependency, script loading or automatic fallback.
 
@@ -41,3 +41,12 @@ application until its required native capabilities and events are available.
 
 Launch assertions stay opaque and untrusted. Send their exact bytes to your
 backend for verification. The adapter does not authenticate them.
+
+## Launch identity and missing bot
+
+`adapter.launchUnsafe()` (also `client.launchUnsafe()`) parses display-only launch
+data; IDs stay strings and avatar URLs are restricted to HTTPS subdomains of
+`lo.ink`. Verify `adapter.launchData` on your server before trusting it. Native
+`NO_BOT` errors become `NoBot` from miniapp-sdk. Older host `false` stays false
+and cannot distinguish a missing link from denial. Host rollout is separate from
+this adapter release; no host version is claimed until its release is verified.

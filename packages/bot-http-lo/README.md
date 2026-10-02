@@ -28,9 +28,10 @@ createLoHttpBotTransport({
 });
 ```
 
-Every request is a single POST to `/bot<TOKEN>/<method>`. Redirects are refused because the credential is in the path. The transport never retries, never includes upstream response text or URLs in errors, preserves decimal identifiers as strings, and forwards cancellation to `fetch`.
+Every request is a single POST to `/bot<TOKEN>/<method>`. Redirects are refused because the credential is in the path. The transport never retries, never includes credential URLs in errors, preserves decimal identifiers as strings, and forwards cancellation to `fetch`.
 
-`HttpBotError` exposes the canonical SDK error `code`, HTTP `status`, upstream `platformCode`, and optional `retryAfterSeconds`. Messages are intentionally generic and safe to log.
+`HttpBotError` exposes the canonical SDK error `code`, HTTP `status`, upstream `platformCode`, and optional `retryAfterSeconds`. Messages are intentionally generic. Version 0.3 adds a bounded, sanitized
+`BadRequest.description` for decisions such as invalidating a cached file ID.
 
 ## Secretary extension (0.2)
 
@@ -51,3 +52,18 @@ independent. `deleteAll` is explicit and requires its separate owner permission.
 See the [no-AI reference bot](../../examples/secretary/README.md) for durable polling,
 authenticated webhooks, owner/chat isolation, replay, revoke and opt-in. These are
 LO-native extensions, not a Telegram account connector.
+
+## Media, keyboards and errors (0.3.0)
+
+Use bot-sdk 0.3.0. The transport builds exact Bot API JSON for `replyMarkup` and
+`setChatMenuButton`, and multipart for uploaded photo/document/voice inputs. It
+lets fetch set the multipart boundary; `reply_markup` is a JSON string. Streams
+are bounded before any network request and cancelled with the request signal.
+File IDs are reused as JSON; photo results select the final largest size.
+
+API failures are SDK `RateLimited`, `NotAllowed`, `BadRequest` or `Unavailable`
+instances, also instances of the existing `HttpBotError` export. Existing codes
+and retryAfterSeconds remain compatible; RateLimited adds retryAfterSec.
+BadRequest.description is bounded and redacts credentials and URLs. No implicit
+retry exists. Voice upload uses AAC/M4A/MP4; voice captions and media URLs fail
+before fetch. See bot-sdk's README for limits and cache invalidation.
