@@ -18,6 +18,8 @@ jobs:
       - run: npm run test:package
       - run: npm pack --dry-run --workspace @lo-ink/adapter-webapp-compat
       - run: npm pack --dry-run --workspace @lo-ink/adapter-lo
+      - run: npm pack --dry-run --workspace @lo-ink/adapter-lo-legacy
+      - run: npm pack --dry-run --workspace @lo-ink/adapter-telegram-to-lo
       - run: npm pack --dry-run --workspace @lo-ink/adapter-telegram
       - run: npm pack --dry-run --workspace @lo-ink/bot-http-lo
       - run: npm pack --dry-run --workspace @lo-ink/adapter-vk

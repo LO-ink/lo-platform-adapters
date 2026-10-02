@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -20,10 +21,18 @@ const run = (file, args, cwd = root) =>
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
-const packages = ["compat", "lo", "telegram", "bot-http-lo", "vk"];
+const packages = [
+  "compat",
+  "lo",
+  "lo-legacy",
+  "telegram",
+  "telegram-to-lo",
+  "bot-http-lo",
+  "vk",
+];
 try {
   const archives = [
-    join(root, "vendor/lo-ink-miniapp-sdk-0.19.1.tgz"),
+    join(root, "vendor/lo-ink-miniapp-sdk-0.19.2.tgz"),
     join(root, "packages/bot-http-lo/vendor/lo-ink-bot-sdk-0.1.0.tgz"),
   ];
   for (const folder of packages) {
@@ -55,6 +64,45 @@ try {
     );
     archives.push(archive);
   }
+  // Test the native installation independently: a full workspace can hide a
+  // missing dependency or accidental compatibility import.
+  const nativeConsumer = join(temp, "native-consumer");
+  mkdirSync(nativeConsumer);
+  writeFileSync(
+    join(nativeConsumer, "package.json"),
+    JSON.stringify({ private: true, type: "module" }),
+  );
+  const nativeManifest = JSON.parse(
+    readFileSync(join(root, "packages/lo/package.json"), "utf8"),
+  );
+  run(
+    "npm",
+    [
+      "install",
+      "--offline",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      "--cache",
+      join(temp, "cache"),
+      archives[0],
+      join(temp, `lo-ink-adapter-lo-${nativeManifest.version}.tgz`),
+    ],
+    nativeConsumer,
+  );
+  assert.deepEqual(
+    readdirSync(join(nativeConsumer, "node_modules/@lo-ink")).sort(),
+    ["adapter-lo", "miniapp-sdk"],
+  );
+  writeFileSync(
+    join(nativeConsumer, "check.mjs"),
+    `
+import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
+import { createAdapter } from '@lo-ink/adapter-lo';
+if (typeof createMiniAppClient !== 'function' || createAdapter() !== null) throw new Error('Native package boundary failed');
+`,
+  );
+  run(process.execPath, ["check.mjs"], nativeConsumer);
   const consumer = join(temp, "consumer");
   mkdirSync(consumer);
   writeFileSync(
@@ -90,11 +138,13 @@ try {
 import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
 import { createBotClient } from '@lo-ink/bot-sdk';
 import { createAdapter as createLo } from '@lo-ink/adapter-lo';
+import { createAdapter as createLegacyLo } from '@lo-ink/adapter-lo-legacy';
+import { installTelegramCompatibility } from '@lo-ink/adapter-telegram-to-lo';
 import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
 import { detectAdapter as detectVk } from '@lo-ink/adapter-vk';
 import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 if (typeof createMiniAppClient !== 'function' || typeof createBotClient !== 'function' || typeof createLoHttpBotTransport !== 'function') throw new Error('Package export missing');
-if (createLo() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
+if (createLo() !== null || createLegacyLo() !== null || installTelegramCompatibility() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
 `,
   );
   run(process.execPath, ["--preserve-symlinks", "check.mjs"], consumer);
@@ -103,11 +153,15 @@ if (createLo() !== null || createTelegram() !== null || await detectVk() !== nul
     `
 import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
 import { createAdapter as createLo } from '@lo-ink/adapter-lo';
+import { createAdapter as createLegacyLo } from '@lo-ink/adapter-lo-legacy';
+import { installTelegramCompatibility } from '@lo-ink/adapter-telegram-to-lo';
 import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
 import { createAdapter as createVk } from '@lo-ink/adapter-vk';
 import { createBotClient } from '@lo-ink/bot-sdk';
 import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 const lo = createLo(); if (lo) createMiniAppClient(lo);
+const legacy = createLegacyLo(); if (legacy) createMiniAppClient(legacy);
+const migration = installTelegramCompatibility(); migration?.dispose();
 const telegram = createTelegram(); if (telegram) createMiniAppClient(telegram);
 async function vk() { createMiniAppClient(await createVk()); }
 const bot = createBotClient(createLoHttpBotTransport({ token: '1:fixture' }));

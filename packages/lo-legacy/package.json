@@ -1,7 +1,7 @@
 {
-  "name": "@lo-ink/adapter-lo",
-  "version": "0.22.0",
-  "description": "Native LO Mini App protocol adapter",
+  "name": "@lo-ink/adapter-lo-legacy",
+  "version": "0.1.0",
+  "description": "Explicit migration adapter for older LO WebApp hosts",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -21,11 +21,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/*.test.mjs",
     "prepack": "npm run build"
   },
   "peerDependencies": {
     "@lo-ink/miniapp-sdk": "^0.19.2"
+  },
+  "dependencies": {
+    "@lo-ink/adapter-webapp-compat": "0.19.2",
+    "@lo-ink/adapter-lo": "0.22.0"
   },
   "engines": {
     "node": ">=20"
@@ -33,7 +36,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/lo-ink/lo-platform-adapters.git",
-    "directory": "packages/lo"
+    "directory": "packages/lo-legacy"
   },
   "publishConfig": {
     "access": "public"
