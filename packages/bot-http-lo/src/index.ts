@@ -1,5 +1,14 @@
+import { mediaRequest } from "./media.js";
 import {
   BotError,
+  BotApiError as HttpBotError,
+  RateLimited,
+  NotAllowed,
+  BadRequest,
+  Unavailable,
+  validateReplyMarkup,
+  validateMenuButton,
+  validateCaption,
   type BotCommand,
   type BotErrorCode,
   type BotIdentity,
@@ -37,19 +46,7 @@ export interface LoHttpBotTransportOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-/** A sanitized transport failure with HTTP and platform classification. */
-export class HttpBotError extends BotError {
-  constructor(
-    code: BotErrorCode,
-    message: string,
-    readonly status?: number,
-    readonly platformCode?: number,
-    retryAfterSeconds?: number,
-  ) {
-    super(code, message, retryAfterSeconds);
-    Object.defineProperty(this, "name", { value: "HttpBotError" });
-  }
-}
+export { HttpBotError };
 
 function configurationError(message: string): HttpBotError {
   return new HttpBotError("invalid-input", message);
@@ -244,7 +241,13 @@ function wireRequest<K extends keyof BotOperations>(
       const value = input as BotOperations["sendMessage"]["input"];
       return {
         method: "sendMessage",
-        body: { chat_id: value.conversationId, text: value.text },
+        body: {
+          chat_id: value.conversationId,
+          text: value.text,
+          ...(value.replyMarkup !== undefined
+            ? { reply_markup: value.replyMarkup }
+            : {}),
+        },
       };
     }
     case "editMessage": {
@@ -255,6 +258,22 @@ function wireRequest<K extends keyof BotOperations>(
           chat_id: value.conversationId,
           message_id: value.messageId,
           text: value.text,
+          ...(value.replyMarkup !== undefined
+            ? { reply_markup: value.replyMarkup }
+            : {}),
+        },
+      };
+    }
+    case "setChatMenuButton": {
+      const value = input as BotOperations["setChatMenuButton"]["input"];
+      validateMenuButton(value.menuButton);
+      return {
+        method: "setChatMenuButton",
+        body: {
+          ...(value.conversationId !== undefined
+            ? { chat_id: value.conversationId }
+            : {}),
+          menu_button: value.menuButton,
         },
       };
     }
@@ -420,6 +439,38 @@ function normalizeResult<K extends keyof BotOperations>(
         true,
       );
       break;
+    case "sendPhoto":
+    case "sendDocument":
+    case "sendVoice": {
+      const normalized = message(
+        value,
+        (input as BotOperations["sendPhoto"]["input"]).conversationId,
+      );
+      const object = record(value)!;
+      const media =
+        operation === "sendPhoto"
+          ? Array.isArray(object.photo)
+            ? object.photo.at(-1)
+            : null
+          : object[operation === "sendDocument" ? "document" : "voice"];
+      const file = record(media);
+      if (
+        !file ||
+        typeof file.file_id !== "string" ||
+        !file.file_id ||
+        (object.caption !== undefined && typeof object.caption !== "string")
+      )
+        throw invalidResult();
+      result = {
+        ...normalized,
+        fileId: file.file_id,
+        ...(typeof object.caption === "string"
+          ? { caption: object.caption }
+          : {}),
+      };
+      break;
+    }
+    case "setChatMenuButton":
     case "deleteMessage":
     case "setCommands":
       if (value !== true) throw invalidResult();
@@ -457,8 +508,46 @@ export function createLoHttpBotTransport(
     throw configurationError("A fetch implementation is required.");
   }
 
+  function apiError(
+    status: number,
+    platformCode: number,
+    retry?: number,
+    description?: unknown,
+  ): HttpBotError {
+    if (platformCode === 429)
+      return new RateLimited(retry, status, platformCode);
+    if (platformCode === 403) return new NotAllowed(status, platformCode);
+    if (platformCode === 400) {
+      const safeDescription =
+        typeof description === "string"
+          ? description
+              .slice(0, 1024)
+              .split(token)
+              .join("[redacted]")
+              .replace(/[1-9][0-9]*:[A-Za-z0-9_-]+/g, "[redacted]")
+              .replace(/https?:\/\/[^\s]+/g, "[URL]")
+          : undefined;
+      return new BadRequest(safeDescription, status, platformCode);
+    }
+    const code = canonicalCode(platformCode);
+    if (platformCode >= 500)
+      return new Unavailable(
+        errorMessage(code),
+        status,
+        platformCode,
+        code === "unsupported" ? "unsupported" : "unavailable",
+      );
+    return new HttpBotError(
+      code,
+      errorMessage(code),
+      status,
+      platformCode,
+      retry,
+    );
+  }
+
   async function executeHttp(
-    request: { method: string; body: Record<string, unknown> },
+    request: { method: string; body: Record<string, unknown> | FormData },
     requestOptions: { signal: AbortSignal },
   ): Promise<unknown> {
     if (requestOptions.signal.aborted) {
@@ -470,8 +559,13 @@ export function createLoHttpBotTransport(
         `${baseUrl}bot${token}/${request.method}`,
         {
           method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(request.body),
+          ...(request.body instanceof FormData
+            ? {}
+            : { headers: { "content-type": "application/json" } }),
+          body:
+            request.body instanceof FormData
+              ? request.body
+              : JSON.stringify(request.body),
           redirect: "manual",
           signal: requestOptions.signal,
         },
@@ -480,9 +574,11 @@ export function createLoHttpBotTransport(
       if (requestOptions.signal.aborted) {
         throw new HttpBotError("aborted", "Request aborted.");
       }
-      throw new HttpBotError(
-        "transport",
+      throw new Unavailable(
         "LO Bot API request failed before receiving a response.",
+        undefined,
+        undefined,
+        "transport",
       );
     }
 
@@ -508,10 +604,11 @@ export function createLoHttpBotTransport(
       if (requestOptions.signal.aborted) {
         throw new HttpBotError("aborted", "Request aborted.");
       }
-      throw new HttpBotError(
-        "transport",
+      throw new Unavailable(
         "LO Bot API response could not be read.",
         response.status,
+        undefined,
+        "transport",
       );
     }
 
@@ -521,9 +618,7 @@ export function createLoHttpBotTransport(
     } catch (error) {
       if (!response.ok) {
         const code = canonicalCode(response.status);
-        throw new HttpBotError(
-          code,
-          errorMessage(code),
+        throw apiError(
           response.status,
           response.status,
           retryAfter(null, response),
@@ -558,12 +653,11 @@ export function createLoHttpBotTransport(
         );
       }
       const code = canonicalCode(platformCode);
-      throw new HttpBotError(
-        code,
-        errorMessage(code),
+      throw apiError(
         response.status,
         platformCode,
         retryAfter(envelope, response),
+        envelope.description,
       );
     }
     if (!Object.hasOwn(envelope, "result") || envelope.result === null) {
@@ -581,10 +675,37 @@ export function createLoHttpBotTransport(
       input: BotOperations[K]["input"],
       requestOptions: { signal: AbortSignal },
     ): Promise<BotOperations[K]["output"]> {
+      let request: { method: string; body: Record<string, unknown> | FormData };
+      if (
+        operation === "sendPhoto" ||
+        operation === "sendDocument" ||
+        operation === "sendVoice"
+      ) {
+        const media = input as BotOperations[
+          | "sendPhoto"
+          | "sendDocument"
+          | "sendVoice"]["input"];
+        validateReplyMarkup(media.replyMarkup, media.conversationId);
+        if (operation === "sendVoice" && Object.hasOwn(media, "caption"))
+          throw configurationError(
+            "LO voice messages do not support captions.",
+          );
+        validateCaption((media as { caption?: string }).caption);
+        request = {
+          method: operation,
+          body: await mediaRequest(operation, media, requestOptions.signal),
+        };
+      } else {
+        if (operation === "sendMessage" || operation === "editMessage") {
+          const value = input as BotOperations["sendMessage"]["input"];
+          validateReplyMarkup(value.replyMarkup, value.conversationId);
+        }
+        request = wireRequest(operation, input);
+      }
       return normalizeResult(
         operation,
         input,
-        await executeHttp(wireRequest(operation, input), requestOptions),
+        await executeHttp(request, requestOptions),
       );
     },
     async executeSecretary<K extends keyof SecretaryOperations>(

@@ -2,6 +2,9 @@ import {
   MINI_APP_LIMITS,
   MINI_APP_PROTOCOL_VERSION,
   MiniAppError,
+  NoBot,
+  parseLaunchDataUnsafe,
+  type LaunchData,
 } from "@lo-ink/miniapp-sdk";
 import type {
   AdapterRequest,
@@ -165,6 +168,7 @@ type ValidatedPort = {
 };
 
 export interface LoNativeAdapter extends MiniAppAdapter {
+  launchUnsafe(): LaunchData;
   readonly nativeOperations: ReadonlySet<LoNativeOperation>;
   readonly nativeEvents: ReadonlySet<MiniAppEvent>;
   readonly canonicalSnapshot: boolean;
@@ -451,6 +455,7 @@ function hostError(value: unknown): MiniAppError | null {
   ) {
     return null;
   }
+  if (source.code === "NO_BOT") return new NoBot();
   const code =
     source.code === "unsupported_operation"
       ? "unsupported"
@@ -1036,6 +1041,7 @@ export function createNativeAdapter(
 
   return {
     id: "lo",
+    launchUnsafe: () => parseLaunchDataUnsafe(port.launchData),
     launchData: port.launchData,
     capabilities,
     nativeOperations: supportedOperations,

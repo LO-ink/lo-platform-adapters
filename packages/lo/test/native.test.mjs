@@ -825,3 +825,28 @@ test("shipped story and swipe controls cross only the own native port", async ()
   }
   client.dispose();
 });
+
+test("NO_BOT is typed while older host false remains unchanged", async () => {
+  const { NoBot } = await import("@lo-ink/miniapp-sdk");
+  const host = nativePort({
+    launchData: new URLSearchParams({
+      user: '{"id":9007199254740993}',
+    }).toString(),
+  });
+  const adapter = createAdapter({ LO: { MiniAppNative: host.port } });
+  assert.equal(adapter.launchUnsafe().user.id, "9007199254740993");
+  const client = createMiniAppClient(adapter);
+  const missing = client.call("requestWriteAccess", undefined);
+  result(host, host.messages.at(-1), {
+    ok: false,
+    error: { code: "NO_BOT", message: "No linked bot" },
+  });
+  await assert.rejects(
+    missing,
+    (e) => e instanceof NoBot && e.code === "no-bot",
+  );
+  const older = client.call("requestWriteAccess", undefined);
+  result(host, host.messages.at(-1), { ok: true, value: false });
+  assert.equal(await older, false);
+  client.dispose();
+});
