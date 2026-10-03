@@ -334,3 +334,54 @@ test("real API error envelopes map to SDK classes without retries", async () => 
   );
   assert.equal(offline.calls(), 1);
 });
+
+test("malformed upload chunks cancel the source without fetching or leaking its lock", async () => {
+  const { client, calls } = setup(() => assert.fail("fetch must not run"));
+  let cancelled = 0;
+  const stream = new ReadableStream({
+    start(c) {
+      c.enqueue("not bytes");
+    },
+    cancel() {
+      cancelled++;
+      throw new Error("source cancel failure");
+    },
+  });
+  await assert.rejects(
+    client.sendDocument({
+      conversationId: "42",
+      document: { data: stream, name: "fixture.txt" },
+    }),
+    (e) => e.code === "invalid-input",
+  );
+  assert.equal(cancelled, 1);
+  assert.equal(stream.locked, false);
+  assert.equal(calls(), 0);
+});
+
+test("voice Blob MIME validation agrees with the serialized multipart type", async () => {
+  const { client, calls } = setup((_url, request) => {
+    assert.equal(request.body.get("voice").type, "audio/aac");
+    return envelope(wireMessage({ voice: { file_id: "voice" } }));
+  });
+  await assert.rejects(
+    client.sendVoice({
+      conversationId: "9007199254740993",
+      voice: {
+        data: new Blob(["fixture"], { type: "audio/ogg" }),
+        name: "voice.m4a",
+      },
+    }),
+    (e) => e.code === "invalid-input",
+  );
+  assert.equal(calls(), 0);
+  await client.sendVoice({
+    conversationId: "9007199254740993",
+    voice: {
+      data: new Blob(["fixture"], { type: "application/octet-stream" }),
+      name: "voice.aac",
+      mime: "audio/aac",
+    },
+  });
+  assert.equal(calls(), 1);
+});

@@ -44,7 +44,6 @@ async function fileBlob(
         throw new BotError("invalid-input", "Expected byte stream chunks.");
       size += value.byteLength;
       if (size > BOT_MEDIA_LIMITS[`${kind}Bytes`]) {
-        void reader.cancel().catch(() => {});
         throw new BotError(
           "invalid-input",
           "File exceeds the LO upload limit.",
@@ -53,6 +52,11 @@ async function fileBlob(
       chunks.push(new Uint8Array(value).buffer);
     }
     return new Blob(chunks, { type });
+  } catch (error) {
+    // Stop the producer on malformed chunks and read errors, without replacing
+    // the validation error or waiting on a potentially broken cancellation.
+    void reader.cancel().catch(() => {});
+    throw error;
   } finally {
     signal.removeEventListener("abort", abort);
     reader.releaseLock();

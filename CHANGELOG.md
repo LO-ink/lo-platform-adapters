@@ -5,6 +5,7 @@
 - adapter-lo 0.23.0: display-only launchUnsafe and typed NO_BOT, with old-host compatibility tests.
 - bot-http-lo 0.3.0: keyboard/menu serialization, multipart photo/document/voice uploads, bounded streams, fileId reuse and SDK error classes.
 - Compatibility packages receive patch updates for miniapp-sdk 0.20.0 and adapter-lo 0.23.0 peer support.
+- Cancel rejected upload streams and release their reader locks; validate inferred voice Blob MIME consistently with the Bot SDK.
 - Existing errors, secretary operations and no-retry semantics remain compatible.
 
 Native adapter 0.23 and its legacy composition require miniapp-sdk 0.20. Bot HTTP
