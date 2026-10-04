@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/bot-http-lo",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "LO HTTP transport for @lo-ink/bot-sdk",
   "type": "module",
   "license": "MIT",
@@ -26,10 +26,10 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "@lo-ink/bot-sdk": "^0.4.0"
+    "@lo-ink/bot-sdk": "^0.4.1"
   },
   "devDependencies": {
-    "@lo-ink/bot-sdk": "file:vendor/lo-ink-bot-sdk-0.4.0.tgz",
+    "@lo-ink/bot-sdk": "file:vendor/lo-ink-bot-sdk-0.4.1.tgz",
     "typescript": "5.9.3"
   },
   "repository": {
