@@ -50,3 +50,5 @@ data; IDs stay strings and avatar URLs are restricted to HTTPS subdomains of
 `NO_BOT` errors become `NoBot` from miniapp-sdk. Older host `false` stays false
 and cannot distinguish a missing link from denial. Host rollout is separate from
 this adapter release; no host version is claimed until its release is verified.
+
+`themeChanged`, `viewportChanged`, inset and fullscreen events update `snapshot()` before listeners run. Event fields take precedence over a port that continues to return its launch snapshot. Invalid payloads and events received after unsubscribe do not change the snapshot.
