@@ -92,7 +92,7 @@ test("maps every canonical operation to the exact LO method and body", async (t)
         reply(
           response,
           200,
-          '{"ok":true,"result":[{"update_id":9007199254740997,"message":{"message_id":9007199254740999,"date":1,"chat":{"id":9007199254740993,"type":"private"},"text":"Incoming"}},{"update_id":9007199254741001,"callback_query":{"id":"opaque"}}]}',
+          '{"ok":true,"result":[{"update_id":9007199254740997,"message":{"message_id":9007199254740999,"date":1,"chat":{"id":9007199254740993,"type":"private"},"text":"Incoming"}},{"update_id":9007199254741001,"future_event":{"id":"opaque"}}]}',
         );
         break;
       default:
@@ -105,6 +105,9 @@ test("maps every canonical operation to the exact LO method and body", async (t)
   assert.deepEqual(await client.getIdentity(), {
     id: "9007199254740993",
     name: "Helper",
+    canJoinGroups: false,
+    canReadAllGroupMessages: false,
+    supportsInlineQueries: false,
     handle: "helper_bot",
   });
   assert.deepEqual(

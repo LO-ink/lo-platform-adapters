@@ -47,3 +47,7 @@ production server method. Hosted acceptance remains separate evidence.
 requires `data-miniapp-host="lo-native"`, `"lo-legacy"` or `"telegram"` on its
 entry document. It loads the external host script only for the explicit Telegram
 entrypoint; missing native support inside LO never selects another provider.
+
+Bot HTTP transport 0.4 uses native LO keyboard values from bot-sdk 0.4 and supports video, cached audio, homogeneous photo/document albums, metadata/download streams and typed callback/app-data updates. Installation capabilities are optional on older servers. See [the transport API](packages/bot-http-lo/README.md).
+
+Compatibility guides live here: [bot migration](docs/telegram-bots.md), [mini-app migration](docs/telegram-miniapps.md), and [API mapping](docs/lo-vs-telegram.md).

@@ -9,9 +9,14 @@ import {
   BOT_MEDIA_LIMITS,
 } from "@lo-ink/bot-sdk";
 import { createLoHttpBotTransport, HttpBotError } from "../dist/index.js";
-const markup = {
+const wireMarkup = {
   inline_keyboard: [
     [{ text: "Открыть", web_app: { url: "https://app.example.test/" } }],
+  ],
+};
+const markup = {
+  inlineKeyboard: [
+    [{ text: "Открыть", miniApp: { url: "https://app.example.test/" } }],
   ],
 };
 const envelope = (result) => Response.json({ ok: true, result });
@@ -58,7 +63,7 @@ test("keyboard requests match the real Bot API JSON byte for byte", async () => 
         chat_id: "9007199254740993",
         ...(operation === "editMessageText" ? { message_id: "42" } : {}),
         text: "Тест",
-        reply_markup: markup,
+        reply_markup: wireMarkup,
       }),
     );
     return envelope(wireMessage({ text: "Тест" }));
@@ -77,9 +82,9 @@ test("keyboard requests match the real Bot API JSON byte for byte", async () => 
   await client.setChatMenuButton({
     conversationId: "9007199254740993",
     menuButton: {
-      type: "web_app",
+      type: "miniApp",
       text: "Открыть",
-      web_app: { url: "https://app.example.test/" },
+      miniApp: { url: "https://app.example.test/" },
     },
   });
 });
@@ -100,7 +105,7 @@ for (const [method, kind, name, mime] of [
         );
         assert.equal(form.get("chat_id"), "9007199254740993");
         assert.equal(form.get("caption"), kind === "voice" ? null : "Подпись");
-        assert.equal(form.get("reply_markup"), JSON.stringify(markup));
+        assert.equal(form.get("reply_markup"), JSON.stringify(wireMarkup));
         const file = form.get(kind);
         assert.equal(file.name, name);
         assert.equal(file.type, mime);
@@ -111,7 +116,7 @@ for (const [method, kind, name, mime] of [
           body: form,
         });
         const parsed = await actual.formData();
-        assert.equal(parsed.get("reply_markup"), JSON.stringify(markup));
+        assert.equal(parsed.get("reply_markup"), JSON.stringify(wireMarkup));
         assert.equal(parsed.get(kind).name, name);
       } else {
         assert.deepEqual(JSON.parse(request.body), {
@@ -203,8 +208,8 @@ test("bad inputs fail before fetch, including UTF-16 captions and UTF-8 callback
         conversationId: "42",
         text: "x",
         replyMarkup: {
-          inline_keyboard: [
-            [{ text: "x", web_app: { url: "http://example.test/" } }],
+          inlineKeyboard: [
+            [{ text: "x", miniApp: { url: "http://example.test/" } }],
           ],
         },
       }),
@@ -219,7 +224,7 @@ test("bad inputs fail before fetch, including UTF-16 captions and UTF-8 callback
         conversationId: "42",
         text: "x",
         replyMarkup: {
-          inline_keyboard: [[{ text: "x", callback_data: "я".repeat(33) }]],
+          inlineKeyboard: [[{ text: "x", callbackData: "я".repeat(33) }]],
         },
       }),
     () =>
@@ -231,7 +236,7 @@ test("bad inputs fail before fetch, including UTF-16 captions and UTF-8 callback
             [
               {
                 text: "x",
-                web_app: { url: "https://example.test/" + "я".repeat(256) },
+                miniApp: { url: "https://example.test/" + "я".repeat(256) },
               },
             ],
           ],

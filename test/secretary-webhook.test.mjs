@@ -51,7 +51,7 @@ test("webhook authenticates before decode and only acknowledges completed durabl
   const request = fetch(url, {
     method: "POST",
     headers,
-    body: '{"update_id":9007199254740993,"callback_query":{"id":"opaque"}}',
+    body: '{"update_id":9007199254740993,"callback_query":{"id":"opaque","from":{"id":123}}}',
   }).then((response) => {
     acknowledged = true;
     return response;
