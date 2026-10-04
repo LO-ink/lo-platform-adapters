@@ -32,8 +32,8 @@ const packages = [
 ];
 try {
   const archives = [
-    join(root, "vendor/lo-ink-miniapp-sdk-0.20.0.tgz"),
-    join(root, "packages/bot-http-lo/vendor/lo-ink-bot-sdk-0.3.0.tgz"),
+    join(root, "vendor/lo-ink-miniapp-sdk-0.20.1.tgz"),
+    join(root, "packages/bot-http-lo/vendor/lo-ink-bot-sdk-0.4.0.tgz"),
   ];
   for (const folder of packages) {
     const manifest = JSON.parse(

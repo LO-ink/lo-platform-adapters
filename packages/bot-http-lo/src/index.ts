@@ -1,4 +1,7 @@
-import { mediaRequest } from "./media.js";
+import { interactionUpdate } from "./interactions.js";
+import { wireReplyMarkup, wireMenuButton } from "./keyboard.js";
+import { mediaRequest, albumRequest } from "./media.js";
+import { downloadFileStream } from "./download.js";
 import {
   BotError,
   BotApiError as HttpBotError,
@@ -9,6 +12,11 @@ import {
   validateReplyMarkup,
   validateMenuButton,
   validateCaption,
+  validateVideo,
+  validateAlbum,
+  type BotFile,
+  type BotFailureDetails,
+  type BotFailureReason,
   type BotCommand,
   type BotErrorCode,
   type BotIdentity,
@@ -144,9 +152,43 @@ function botIdentity(value: unknown): BotIdentity {
   if (object.username !== undefined && typeof object.username !== "string") {
     throw invalidResult();
   }
+  if (
+    object.capabilities !== undefined &&
+    (!record(object.capabilities) ||
+      !Object.values(record(object.capabilities) ?? {}).every(
+        (value) => typeof value === "boolean",
+      ))
+  )
+    throw invalidResult();
   return {
     id,
     name: object.first_name,
+    canJoinGroups: object.can_join_groups,
+    canReadAllGroupMessages: object.can_read_all_group_messages,
+    supportsInlineQueries: object.supports_inline_queries,
+    ...(record(object.capabilities)
+      ? {
+          capabilities: Object.fromEntries(
+            Object.entries({
+              video_uploads: "videoUploads",
+              audio_uploads: "audioUploads",
+              single_attach: "singleAttach",
+              media_groups: "mediaGroups",
+              chat_actions: "chatActions",
+            })
+              .filter(
+                ([key]) =>
+                  typeof (object.capabilities as Record<string, unknown>)[
+                    key
+                  ] === "boolean",
+              )
+              .map(([key, name]) => [
+                name,
+                (object.capabilities as Record<string, unknown>)[key],
+              ]),
+          ),
+        }
+      : {}),
     ...(object.username ? { handle: object.username } : {}),
   };
 }
@@ -203,6 +245,41 @@ function commands(value: unknown): readonly BotCommand[] {
   });
 }
 
+function incomingMessage(raw: unknown): Message {
+  const result = message(raw),
+    object = record(raw)!;
+  if (object.caption !== undefined && typeof object.caption !== "string")
+    throw invalidResult();
+  let attachment: Record<string, unknown> | null = null,
+    mediaType: Message["mediaType"];
+  for (const kind of [
+    "photo",
+    "document",
+    "voice",
+    "video",
+    "audio",
+  ] as const) {
+    if (!Object.hasOwn(object, kind)) continue;
+    if (mediaType !== undefined) throw invalidResult();
+    mediaType = kind;
+    const raw = object[kind];
+    attachment = record(
+      kind === "photo" ? (Array.isArray(raw) ? raw.at(-1) : undefined) : raw,
+    );
+    if (
+      !attachment ||
+      typeof attachment.file_id !== "string" ||
+      !attachment.file_id
+    )
+      throw invalidResult();
+  }
+  return {
+    ...result,
+    ...(typeof object.caption === "string" ? { caption: object.caption } : {}),
+    ...(attachment ? { fileId: attachment.file_id as string, mediaType } : {}),
+  };
+}
+
 function updates(value: unknown): readonly BotUpdate[] {
   if (!Array.isArray(value)) throw invalidResult();
   return value.map(decodeLoBotUpdate);
@@ -215,8 +292,15 @@ export function decodeLoBotUpdate(value: unknown): BotUpdate {
   if (!object || !id) throw invalidResult();
   const delegated = decodeSecretaryUpdate(object, id);
   if (delegated) return delegated;
+  const interaction = interactionUpdate(
+    object,
+    id,
+    identifier,
+    incomingMessage,
+  );
+  if (interaction) return interaction;
   if (Object.hasOwn(object, "message"))
-    return { id, kind: "message", message: message(object.message) };
+    return { id, kind: "message", message: incomingMessage(object.message) };
   return { id, kind: "unhandled" };
 }
 
@@ -237,6 +321,24 @@ function wireRequest<K extends keyof BotOperations>(
   switch (operation) {
     case "getIdentity":
       return { method: "getMe", body: {} };
+    case "answerCallback": {
+      const answer = input as BotOperations["answerCallback"]["input"];
+      return {
+        method: "answerCallbackQuery",
+        body: {
+          callback_query_id: answer.callbackId,
+          ...(answer.text !== undefined ? { text: answer.text } : {}),
+          ...(answer.showAlert !== undefined
+            ? { show_alert: answer.showAlert }
+            : {}),
+        },
+      };
+    }
+    case "getFile":
+      return {
+        method: "getFile",
+        body: { file_id: (input as BotOperations["getFile"]["input"]).fileId },
+      };
     case "sendMessage": {
       const value = input as BotOperations["sendMessage"]["input"];
       return {
@@ -245,7 +347,7 @@ function wireRequest<K extends keyof BotOperations>(
           chat_id: value.conversationId,
           text: value.text,
           ...(value.replyMarkup !== undefined
-            ? { reply_markup: value.replyMarkup }
+            ? { reply_markup: wireReplyMarkup(value.replyMarkup) }
             : {}),
         },
       };
@@ -259,7 +361,7 @@ function wireRequest<K extends keyof BotOperations>(
           message_id: value.messageId,
           text: value.text,
           ...(value.replyMarkup !== undefined
-            ? { reply_markup: value.replyMarkup }
+            ? { reply_markup: wireReplyMarkup(value.replyMarkup) }
             : {}),
         },
       };
@@ -273,7 +375,7 @@ function wireRequest<K extends keyof BotOperations>(
           ...(value.conversationId !== undefined
             ? { chat_id: value.conversationId }
             : {}),
-          menu_button: value.menuButton,
+          menu_button: wireMenuButton(value.menuButton),
         },
       };
     }
@@ -421,6 +523,44 @@ function normalizeResult<K extends keyof BotOperations>(
     | boolean
     | readonly BotCommand[]
     | readonly BotUpdate[];
+  if (operation === "getFile") {
+    const file = record(value);
+    if (
+      !file ||
+      typeof file.file_id !== "string" ||
+      !file.file_id ||
+      file.file_id !== (input as BotOperations["getFile"]["input"]).fileId ||
+      typeof file.file_unique_id !== "string" ||
+      !file.file_unique_id ||
+      (file.file_path !== undefined && typeof file.file_path !== "string") ||
+      (file.file_size !== undefined &&
+        (typeof file.file_size !== "number" ||
+          !Number.isSafeInteger(file.file_size) ||
+          file.file_size < 0))
+    )
+      throw invalidResult();
+    const normalized: BotFile = {
+      fileId: file.file_id,
+      uniqueId: file.file_unique_id,
+      ...(typeof file.file_path === "string" ? { path: file.file_path } : {}),
+      ...(typeof file.file_size === "number" ? { size: file.file_size } : {}),
+    };
+    return normalized as BotOperations[K]["output"];
+  }
+  if (operation === "sendMediaGroup") {
+    const album = input as BotOperations["sendMediaGroup"]["input"];
+    if (!Array.isArray(value) || value.length !== album.media.length)
+      throw invalidResult();
+    return value.map((item, index) =>
+      normalizeResult(
+        album.media[index]!.type === "photo" ? "sendPhoto" : "sendDocument",
+        {
+          conversationId: album.conversationId,
+        } as BotOperations["sendPhoto"]["input"],
+        item,
+      ),
+    ) as BotOperations[K]["output"];
+  }
   switch (operation) {
     case "getIdentity":
       result = botIdentity(value);
@@ -441,7 +581,9 @@ function normalizeResult<K extends keyof BotOperations>(
       break;
     case "sendPhoto":
     case "sendDocument":
-    case "sendVoice": {
+    case "sendVoice":
+    case "sendVideo":
+    case "sendAudio": {
       const normalized = message(
         value,
         (input as BotOperations["sendPhoto"]["input"]).conversationId,
@@ -452,7 +594,22 @@ function normalizeResult<K extends keyof BotOperations>(
           ? Array.isArray(object.photo)
             ? object.photo.at(-1)
             : null
-          : object[operation === "sendDocument" ? "document" : "voice"];
+          : object[
+              (
+                {
+                  sendDocument: "document",
+                  sendVoice: "voice",
+                  sendVideo: "video",
+                  sendAudio: "audio",
+                } as const
+              )[
+                operation as
+                  | "sendDocument"
+                  | "sendVoice"
+                  | "sendVideo"
+                  | "sendAudio"
+              ]
+            ];
       const file = record(media);
       if (
         !file ||
@@ -471,6 +628,7 @@ function normalizeResult<K extends keyof BotOperations>(
       break;
     }
     case "setChatMenuButton":
+    case "answerCallback":
     case "deleteMessage":
     case "setCommands":
       if (value !== true) throw invalidResult();
@@ -513,9 +671,28 @@ export function createLoHttpBotTransport(
     platformCode: number,
     retry?: number,
     description?: unknown,
+    parameters?: unknown,
+    safeToRetry = false,
   ): HttpBotError {
+    const params = record(parameters);
+    const reasons = [
+      "unsupported_parameter",
+      "upload_only",
+      "feature_disabled",
+      "method_not_implemented",
+    ];
+    const details: BotFailureDetails = {
+      ...(typeof params?.parameter === "string" &&
+      /^[a-z_]{1,64}$/.test(params.parameter)
+        ? { parameter: params.parameter }
+        : {}),
+      ...(typeof params?.reason === "string" && reasons.includes(params.reason)
+        ? { reason: params.reason as BotFailureReason }
+        : {}),
+      ...(safeToRetry ? { safeToRetry: true } : {}),
+    };
     if (platformCode === 429)
-      return new RateLimited(retry, status, platformCode);
+      return new RateLimited(retry, status, platformCode, details);
     if (platformCode === 403) return new NotAllowed(status, platformCode);
     if (platformCode === 400) {
       const safeDescription =
@@ -527,7 +704,29 @@ export function createLoHttpBotTransport(
               .replace(/[1-9][0-9]*:[A-Za-z0-9_-]+/g, "[redacted]")
               .replace(/https?:\/\/[^\s]+/g, "[URL]")
           : undefined;
-      return new BadRequest(safeDescription, status, platformCode);
+      // Older installations return descriptions only; keep this fallback in the adapter.
+      if (!details.reason && typeof safeDescription === "string") {
+        const unsupported =
+          /^Bad Request: ([a-z_]+) is not supported yet$/.exec(safeDescription);
+        const uploadOnly =
+          /^Bad Request: ([a-z_]+) applies only to an uploaded video, not to a file identifier$/.exec(
+            safeDescription,
+          );
+        return new BadRequest(
+          safeDescription,
+          status,
+          platformCode,
+          unsupported
+            ? { parameter: unsupported[1], reason: "unsupported_parameter" }
+            : uploadOnly
+              ? { parameter: uploadOnly[1], reason: "upload_only" }
+              : safeDescription ===
+                  "Bad Request: video must be a file identifier"
+                ? { parameter: "video", reason: "feature_disabled" }
+                : details,
+        );
+      }
+      return new BadRequest(safeDescription, status, platformCode, details);
     }
     const code = canonicalCode(platformCode);
     if (platformCode >= 500)
@@ -536,6 +735,9 @@ export function createLoHttpBotTransport(
         status,
         platformCode,
         code === "unsupported" ? "unsupported" : "unavailable",
+        platformCode === 501
+          ? { ...details, reason: details.reason ?? "method_not_implemented" }
+          : details,
       );
     return new HttpBotError(
       code,
@@ -636,6 +838,8 @@ export function createLoHttpBotTransport(
     }
     const envelope = record(parsed);
     if (!envelope || typeof envelope.ok !== "boolean") {
+      if (response.status >= 500)
+        throw apiError(response.status, response.status);
       throw new HttpBotError(
         "invalid-response",
         "LO Bot API returned an invalid response envelope.",
@@ -658,6 +862,10 @@ export function createLoHttpBotTransport(
         platformCode,
         retryAfter(envelope, response),
         envelope.description,
+        envelope.parameters,
+        response.status === 429 &&
+          envelope.ok === false &&
+          platformCode === 429,
       );
     }
     if (!Object.hasOwn(envelope, "result") || envelope.result === null) {
@@ -676,16 +884,42 @@ export function createLoHttpBotTransport(
       requestOptions: { signal: AbortSignal },
     ): Promise<BotOperations[K]["output"]> {
       let request: { method: string; body: Record<string, unknown> | FormData };
-      if (
+      if (operation === "downloadFile")
+        return (await downloadFileStream(
+          baseUrl,
+          token,
+          fetchImplementation,
+          input as BotOperations["downloadFile"]["input"],
+          requestOptions.signal,
+        )) as BotOperations[K]["output"];
+      if (operation === "sendMediaGroup") {
+        const album = input as BotOperations["sendMediaGroup"]["input"];
+        validateAlbum(album.media);
+        request = {
+          method: operation,
+          body: await albumRequest(album, requestOptions.signal),
+        };
+      } else if (
         operation === "sendPhoto" ||
         operation === "sendDocument" ||
-        operation === "sendVoice"
+        operation === "sendVoice" ||
+        operation === "sendVideo" ||
+        operation === "sendAudio"
       ) {
         const media = input as BotOperations[
           | "sendPhoto"
           | "sendDocument"
-          | "sendVoice"]["input"];
-        validateReplyMarkup(media.replyMarkup, media.conversationId);
+          | "sendVoice"
+          | "sendVideo"
+          | "sendAudio"]["input"];
+        validateReplyMarkup(media.replyMarkup, media.conversationId, true);
+        if (operation === "sendVideo")
+          validateVideo(input as BotOperations["sendVideo"]["input"]);
+        if (
+          operation === "sendAudio" &&
+          !("fileId" in (input as BotOperations["sendAudio"]["input"]).audio)
+        )
+          throw configurationError("LO audio uploads are unavailable.");
         if (operation === "sendVoice" && Object.hasOwn(media, "caption"))
           throw configurationError(
             "LO voice messages do not support captions.",
@@ -698,7 +932,11 @@ export function createLoHttpBotTransport(
       } else {
         if (operation === "sendMessage" || operation === "editMessage") {
           const value = input as BotOperations["sendMessage"]["input"];
-          validateReplyMarkup(value.replyMarkup, value.conversationId);
+          validateReplyMarkup(
+            value.replyMarkup,
+            value.conversationId,
+            operation === "editMessage",
+          );
         }
         request = wireRequest(operation, input);
       }

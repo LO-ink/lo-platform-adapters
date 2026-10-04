@@ -49,9 +49,8 @@ credential generation and owner identity are derived by the server, never from
 caller-provided grant fields. Receiving, reading, sending and deleting remain
 independent. `deleteAll` is explicit and requires its separate owner permission.
 
-See the [no-AI reference bot](../../examples/secretary/README.md) for durable polling,
-authenticated webhooks, owner/chat isolation, replay, revoke and opt-in. These are
-LO-native extensions, not a Telegram account connector.
+See the [reference bot](../../examples/secretary/README.md) for durable polling,
+authenticated webhooks, owner/chat isolation, replay, revoke and opt-in. These are LO-native secretary operations.
 
 ## Media, keyboards and errors (0.3.0)
 
@@ -67,3 +66,13 @@ and retryAfterSeconds remain compatible; RateLimited adds retryAfterSec.
 BadRequest.description is bounded and redacts credentials and URLs. No implicit
 retry exists. Voice upload uses AAC/M4A/MP4; voice captions and media URLs fail
 before fetch. See bot-sdk's README for limits and cache invalidation.
+
+## Files and video (0.4.0)
+
+The transport supports native video uploads with upload-only metadata and thumbnail, cached audio, homogeneous photo/document albums, `getFile`, and bounded streaming downloads. Media sends use inline keyboards. Albums carry one LO message ID shared by all returned items; deleting that ID deletes the album.
+
+Video calls allow a 90-second preparation deadline by default. Explicit client or per-call deadlines take precedence. File downloads use authenticated paths, reject redirects and traversal, and accept a persistent `signal`; consume or cancel the returned stream. Missing file paths remain absent.
+
+A genuine API 429 refusal sets `details.safeToRetry`; unknown HTTP failures do not. Use the native SDK's explicit `retryRejected` only with replayable input. Network failures and 5xx sends are never repeated automatically.
+
+Native keyboard values in bot-sdk 0.4 use camelCase. The transport converts them to the server contract and checks the serialized keyboard size before fetch. See bot-sdk’s upgrade note before updating 0.3 applications.
