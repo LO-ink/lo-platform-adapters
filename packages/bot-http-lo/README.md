@@ -76,3 +76,5 @@ Video calls allow a 90-second preparation deadline by default. Explicit client o
 A genuine API 429 refusal sets `details.safeToRetry`; unknown HTTP failures do not. Use the native SDK's explicit `retryRejected` only with replayable input. Network failures and 5xx sends are never repeated automatically.
 
 Native keyboard values in bot-sdk 0.4 use camelCase. The transport converts them to the server contract and checks the serialized keyboard size before fetch. See bot-sdk’s upgrade note before updating 0.3 applications.
+
+LO app-data service updates may use a zero stored-message sentinel. The adapter omits `appData.messageId` in that case and preserves the real update cursor and sender; it does not invent a message identifier. Signed LO paths from `getFile` are encoded as one file-route component.

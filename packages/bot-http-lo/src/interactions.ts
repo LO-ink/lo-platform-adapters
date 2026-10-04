@@ -59,9 +59,14 @@ export function interactionUpdate(
     invalid();
   const userId = identifier(record(incoming.from)?.id, true),
     messageId = identifier(incoming.message_id, true);
+  // LO service updates may carry zero to mean there is no stored message.
+  const hasStoredMessageId =
+    incoming.message_id !== undefined &&
+    incoming.message_id !== 0 &&
+    incoming.message_id !== "0";
   if (
     (incoming.from !== undefined && !userId) ||
-    (incoming.message_id !== undefined && !messageId)
+    (hasStoredMessageId && !messageId)
   )
     invalid();
   return {

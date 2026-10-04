@@ -80,7 +80,11 @@ test("malformed interactions fail instead of falling through to a successful unh
     { update_id: 1, message: { chat: { id: 42 }, web_app_data: { data: 42 } } },
     {
       update_id: 1,
-      message: { chat: { id: 42 }, message_id: 0, web_app_data: { data: "x" } },
+      message: {
+        chat: { id: 42 },
+        message_id: -1,
+        web_app_data: { data: "x" },
+      },
     },
     {
       update_id: 1,
@@ -152,4 +156,103 @@ test("incoming audio and photos expose reusable file IDs through native getUpdat
       mediaType: kind,
     });
   }
+});
+
+test("LO app-data zero message sentinel is omitted while the polling page retains valid messages", async () => {
+  for (const message_id of [0, "0"]) {
+    const update = decodeLoBotUpdate({
+      update_id: 17,
+      message: {
+        chat: { id: 42 },
+        from: { id: 42 },
+        message_id,
+        web_app_data: { data: "fixture", button_text: "" },
+      },
+    });
+    assert.deepEqual(update.appData, {
+      conversationId: "42",
+      userId: "42",
+      data: "fixture",
+      buttonText: "",
+    });
+    assert.equal(Object.hasOwn(update.appData, "messageId"), false);
+  }
+  const client = createBotClient(
+    createLoHttpBotTransport({
+      token: "7:synthetic",
+      fetch: async () =>
+        Response.json({
+          ok: true,
+          result: [
+            {
+              update_id: 17,
+              message: {
+                chat: { id: 42 },
+                from: { id: 42 },
+                message_id: 0,
+                web_app_data: { data: "fixture" },
+              },
+            },
+            {
+              update_id: 18,
+              message: {
+                message_id: 18,
+                date: 1,
+                chat: { id: 42, type: "private" },
+                text: "after service event",
+              },
+            },
+          ],
+        }),
+    }),
+  );
+  assert.deepEqual(
+    (await client.getUpdates()).map((update) => update.kind),
+    ["appData", "message"],
+  );
+  assert.throws(
+    () =>
+      decodeLoBotUpdate({
+        update_id: 19,
+        message: {
+          message_id: 0,
+          date: 1,
+          chat: { id: 42, type: "private" },
+          text: "invalid stored message",
+        },
+      }),
+    { code: "invalid-response" },
+  );
+});
+
+test("signed LO file paths stay on the authenticated download route and stream exact bytes", async () => {
+  const path = "file:17:" + "A".repeat(22);
+  const client = createBotClient(
+    createLoHttpBotTransport({
+      token: "7:synthetic",
+      fetch: async (url, options) => {
+        if (url.endsWith("/getFile"))
+          return Response.json({
+            ok: true,
+            result: {
+              file_id: path,
+              file_unique_id: "file:17",
+              file_path: path,
+              file_size: 3,
+            },
+          });
+        assert.ok(
+          url.endsWith("/file/bot7:synthetic/" + encodeURIComponent(path)),
+        );
+        assert.equal(options.redirect, "manual");
+        return new Response(new Uint8Array([1, 2, 3]));
+      },
+    }),
+  );
+  const file = await client.getFile(path);
+  const stream = await client.downloadFile({ path: file.path });
+  assert.deepEqual(
+    new Uint8Array(await new Response(stream).arrayBuffer()),
+    new Uint8Array([1, 2, 3]),
+  );
 });
