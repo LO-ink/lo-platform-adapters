@@ -1029,6 +1029,16 @@ export function createNativeAdapter(
     }
   }
   let currentSnapshot = port.initialSnapshot;
+  // Some hosts expose the launch snapshot while subsequent state arrives in events.
+  let eventSnapshot: HostSnapshot = {};
+  const mergeSnapshot = (
+    base: HostSnapshot,
+    patch: HostSnapshot,
+  ): HostSnapshot => ({
+    ...base,
+    ...patch,
+    ...(patch.theme ? { theme: { ...base.theme, ...patch.theme } } : {}),
+  });
   const supportedEvents = new Set<MiniAppEvent>();
   for (const event of nativeEvents) {
     const capability = eventCapabilities.get(event);
@@ -1057,11 +1067,11 @@ export function createNativeAdapter(
     snapshot() {
       try {
         const next = normalizeSnapshot(port.snapshot());
-        if (next) currentSnapshot = next;
+        if (next) currentSnapshot = mergeSnapshot(next, eventSnapshot);
       } catch {
         /* Preserve the last validated host snapshot. */
       }
-      return currentSnapshot;
+      return normalizeSnapshot(currentSnapshot)!;
     },
     subscribe<K extends MiniAppEvent>(
       event: K,
@@ -1079,6 +1089,25 @@ export function createNativeAdapter(
         if (envelope.kind !== "event" || envelope.event !== event) return;
         const payload = normalizeEventPayload(event, envelope.payload);
         if (payload === null) return;
+        let patch: HostSnapshot | undefined;
+        if (event === "themeChanged" || event === "viewportChanged")
+          patch = payload as HostSnapshot;
+        else if (event === "safeAreaChanged")
+          patch = { safeArea: payload as MiniAppEventMap["safeAreaChanged"] };
+        else if (event === "contentSafeAreaChanged")
+          patch = {
+            contentSafeArea:
+              payload as MiniAppEventMap["contentSafeAreaChanged"],
+          };
+        else if (event === "fullscreenChanged")
+          patch = { isFullscreen: payload as boolean };
+        if (patch) {
+          eventSnapshot = mergeSnapshot(
+            eventSnapshot,
+            normalizeSnapshot(patch)!,
+          );
+          currentSnapshot = mergeSnapshot(currentSnapshot, eventSnapshot);
+        }
         listener(payload as MiniAppEventMap[K]);
       };
       let release: (() => void) | undefined;

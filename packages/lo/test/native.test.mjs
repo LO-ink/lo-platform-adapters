@@ -850,3 +850,85 @@ test("NO_BOT is typed while older host false remains unchanged", async () => {
   assert.equal(await older, false);
   client.dispose();
 });
+
+test("native events update snapshots before callbacks even when the port retains launch state", () => {
+  const host = nativePort({
+    events: [
+      "themeChanged",
+      "viewportChanged",
+      "safeAreaChanged",
+      "contentSafeAreaChanged",
+      "fullscreenChanged",
+    ],
+    capabilities: ["fullscreen"],
+  });
+  const adapter = createNativeAdapter({ LO: { MiniAppNative: host.port } });
+  const client = createMiniAppClient(adapter);
+  const releases = [];
+  const emit = (event, payload) =>
+    host.emit(
+      baseEnvelope(host.port.generation, { kind: "event", event, payload }),
+    );
+  releases.push(
+    client.on("themeChanged", (payload) => {
+      assert.equal(adapter.snapshot().colorScheme, payload.colorScheme);
+    }),
+  );
+  for (const event of [
+    "viewportChanged",
+    "safeAreaChanged",
+    "contentSafeAreaChanged",
+    "fullscreenChanged",
+  ])
+    releases.push(client.on(event, () => {}));
+  emit("themeChanged", {
+    colorScheme: "light",
+    theme: { background: "#ffffff", text: "#000000" },
+  });
+  emit("viewportChanged", { viewportHeight: 800, stableViewportHeight: 790 });
+  const safeArea = { top: 10, bottom: 20, left: 0, right: 0 };
+  const contentSafeArea = { top: 40, bottom: 0, left: 0, right: 0 };
+  emit("safeAreaChanged", safeArea);
+  emit("contentSafeAreaChanged", contentSafeArea);
+  emit("fullscreenChanged", true);
+  assert.deepEqual(adapter.snapshot(), {
+    colorScheme: "light",
+    theme: { background: "#ffffff", text: "#000000" },
+    viewportHeight: 800,
+    stableViewportHeight: 790,
+    safeArea,
+    contentSafeArea,
+    isFullscreen: true,
+  });
+  emit("themeChanged", { colorScheme: "dark" });
+  emit("viewportChanged", { viewportHeight: -1 });
+  emit("safeAreaChanged", { top: -1, bottom: 0, left: 0, right: 0 });
+  assert.equal(adapter.snapshot().colorScheme, "dark");
+  assert.equal(adapter.snapshot().viewportHeight, 800);
+  assert.deepEqual(adapter.snapshot().safeArea, safeArea);
+  releases.forEach((release) => release());
+  emit("themeChanged", { colorScheme: "light" });
+  assert.equal(adapter.snapshot().colorScheme, "dark");
+});
+
+test("native snapshot state is isolated from listener and caller mutation", () => {
+  const host = nativePort({ events: ["safeAreaChanged"] });
+  const adapter = createNativeAdapter({ LO: { MiniAppNative: host.port } });
+  const off = adapter.subscribe("safeAreaChanged", (payload) => {
+    payload.top = 999;
+  });
+  host.emit(
+    baseEnvelope(host.port.generation, {
+      kind: "event",
+      event: "safeAreaChanged",
+      payload: { top: 20, bottom: 10, left: 0, right: 0 },
+    }),
+  );
+  const snapshot = adapter.snapshot();
+  assert.equal(snapshot.safeArea.top, 20);
+  snapshot.safeArea.top = 888;
+  snapshot.theme.background = "mutated";
+  assert.equal(adapter.snapshot().safeArea.top, 20);
+  assert.equal(adapter.snapshot().theme.background, "#101010");
+  off();
+});

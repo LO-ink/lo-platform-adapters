@@ -6,8 +6,8 @@ globals, external scripts, version gates and foreign wire shapes never belong in
 
 | Package                              | Direction and responsibility                                          |
 | ------------------------------------ | --------------------------------------------------------------------- |
-| `@lo-ink/adapter-lo` 0.22            | Native LO SDK → native LO protocol; no compatibility dependency       |
-| `@lo-ink/adapter-lo-legacy` 0.1      | Explicit older LO host support; preserves 0.21 composition semantics  |
+| `@lo-ink/adapter-lo` 0.23.1          | Native LO SDK → native LO protocol; no compatibility dependency       |
+| `@lo-ink/adapter-lo-legacy` 0.1.2    | Explicit older LO host support; preserves 0.21 composition semantics  |
 | `@lo-ink/adapter-telegram`           | LO SDK → Telegram host, with an explicit bounded script loader        |
 | `@lo-ink/adapter-telegram-to-lo` 0.1 | Existing Telegram WebApp code → LO-provided compatibility surface     |
 | `@lo-ink/adapter-webapp-compat`      | Shared translation implementation used only by compatibility adapters |
