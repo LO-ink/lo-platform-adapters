@@ -28,6 +28,8 @@ export interface LoMiniAppNativePort {
   readonly capabilities: readonly string[];
   readonly events?: readonly string[];
   readonly canonicalSnapshot?: boolean;
+  /** Host keeps snapshot state current even without event subscribers. */
+  readonly liveSnapshot?: boolean;
   snapshot(): HostSnapshot;
   postMessage(raw: string): void;
   subscribe(listener: (raw: string) => void): () => void;
@@ -161,6 +163,7 @@ type ValidatedPort = {
   capabilities: ReadonlySet<string>;
   events: ReadonlySet<string>;
   canonicalSnapshot: boolean;
+  liveSnapshot: boolean;
   initialSnapshot: HostSnapshot;
   snapshot(): unknown;
   postMessage(raw: string): void;
@@ -411,6 +414,7 @@ function validatePort(value: unknown): ValidatedPort | null {
       capabilities,
       events,
       canonicalSnapshot: port.canonicalSnapshot === true,
+      liveSnapshot: port.liveSnapshot === true,
       initialSnapshot,
       snapshot,
       postMessage: port.postMessage.bind(value),
@@ -461,11 +465,14 @@ function hostError(value: unknown): MiniAppError | null {
       ? "unsupported"
       : source.code === "timeout"
         ? "timeout"
-        : source.code === "invalid_request" ||
-            source.code === "busy" ||
-            source.code === "host_error"
-          ? "failed"
-          : null;
+        : source.code === "ABORTED"
+          ? "aborted"
+          : source.code === "invalid_request" ||
+              source.code === "busy" ||
+              source.code === "host_error" ||
+              source.code === "NOT_AVAILABLE"
+            ? "failed"
+            : null;
   return code ? new MiniAppError(code, source.message) : null;
 }
 
@@ -489,7 +496,7 @@ function normalizeEventPayload(
   if (["themeChanged", "viewportChanged"].includes(event))
     return normalizeSnapshot(value);
   if (["safeAreaChanged", "contentSafeAreaChanged"].includes(event))
-    return normalizeInsets(value);
+    return normalizeInsets(value) ?? null;
   if (event === "fullscreenChanged")
     return typeof value === "boolean" ? value : null;
   const source = record(value);
@@ -1067,7 +1074,10 @@ export function createNativeAdapter(
     snapshot() {
       try {
         const next = normalizeSnapshot(port.snapshot());
-        if (next) currentSnapshot = mergeSnapshot(next, eventSnapshot);
+        if (next)
+          currentSnapshot = port.liveSnapshot
+            ? next
+            : mergeSnapshot(next, eventSnapshot);
       } catch {
         /* Preserve the last validated host snapshot. */
       }

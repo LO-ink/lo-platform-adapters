@@ -1,5 +1,13 @@
 # Changelog
 
+## adapter-lo 0.23.2
+
+- Use current snapshots from native LO ports advertising optional `liveSnapshot`, including across periods with no event subscriptions. Preserve event overlays for older launch-snapshot ports.
+- Ignore missing inset event payloads instead of delivering `undefined` to typed listeners.
+- Document and test the native LO 60-second deadline, including callers with longer SDK deadlines.
+- Map hidden-host `ABORTED` and `NOT_AVAILABLE` failures to existing SDK error codes.
+- adapter-lo-legacy 0.1.3 pins adapter-lo 0.23.2 so its native re-export and composed hosts receive these fixes.
+
 ## Coordinated SDK feedback release
 
 - adapter-lo 0.23.0: display-only launchUnsafe and typed NO_BOT, with old-host compatibility tests.

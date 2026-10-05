@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-lo",
-  "version": "0.23.1",
+  "version": "0.23.2",
   "description": "Native LO Mini App protocol adapter",
   "type": "module",
   "license": "MIT",
