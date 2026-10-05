@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/bot-http-lo",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "LO HTTP transport for @lo-ink/bot-sdk",
   "type": "module",
   "license": "MIT",
@@ -8,13 +8,15 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "contract.json"
   ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./contract": "./contract.json"
   },
   "engines": {
     "node": ">=22"
