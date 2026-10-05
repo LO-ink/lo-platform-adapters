@@ -3,3 +3,11 @@ packages/*/dist/
 *.tgz
 !vendor/*.tgz
 !packages/bot-http-lo/vendor/*.tgz
+
+# Python package builds and local test caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+python/**/build/
+python/**/dist/
+.venv/

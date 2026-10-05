@@ -54,3 +54,25 @@ jobs:
           cache-dependency-path: compatibility/aiogram/requirements.txt
       - run: pip install -r requirements.txt
       - run: python -m unittest discover -v
+  strict-bot-contract:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -r compatibility/aiogram/requirements.txt ./python/lo-aiogram ./python/lo-bot-api-emulator build
+      - run: python -m unittest discover -s python/tests -v
+      - run: python -m build python/lo-aiogram && python -m build python/lo-bot-api-emulator
+      - run: npm ci
+        working-directory: compatibility/bot-frameworks
+      - run: LO_STRICT_PYTHON=python npm run test:strict
+        working-directory: compatibility/bot-frameworks
+      - run: docker build -t lo-bot-api-emulator:ci python/lo-bot-api-emulator
+        if: matrix.python == '3.13'

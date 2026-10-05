@@ -1,0 +1,1304 @@
+{
+  "features": {
+    "audioUploads": {
+      "supported": false
+    },
+    "singleAttach": {
+      "legacyConfigurable": true,
+      "supported": true
+    },
+    "videoUploads": {
+      "installationDependent": true
+    }
+  },
+  "inputMedia": {
+    "captionOnFirstOnly": true,
+    "maxItems": 10,
+    "minItems": 2,
+    "parameters": [
+      "caption",
+      "caption_entities",
+      "media",
+      "parse_mode",
+      "type"
+    ],
+    "types": ["photo", "document"]
+  },
+  "limits": {
+    "captionUtf16": 1024,
+    "fileBytes": 52428800,
+    "photoBytes": 10485760,
+    "textUtf16": 4096,
+    "videoDurationSeconds": 86400,
+    "videoSidePixels": 16384
+  },
+  "methods": {
+    "addStickerToSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "answerCallbackQuery": {
+      "implemented": true,
+      "parameters": [
+        "cache_time",
+        "callback_query_id",
+        "show_alert",
+        "text",
+        "url"
+      ],
+      "quota": "KindRead"
+    },
+    "answerGuestQuery": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "answerInlineQuery": {
+      "implemented": true,
+      "parameters": [
+        "cache_time",
+        "inline_query_id",
+        "is_personal",
+        "next_offset",
+        "results"
+      ],
+      "quota": "KindRead"
+    },
+    "answerPreCheckoutQuery": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "answerShippingQuery": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "answerWebAppQuery": {
+      "implemented": true,
+      "parameters": ["result", "web_app_query_id"],
+      "quota": "KindSend"
+    },
+    "approveChatJoinRequest": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "approveSuggestedPost": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "banChatMember": {
+      "implemented": true,
+      "parameters": ["chat_id", "user_id"],
+      "quota": "KindSend"
+    },
+    "banChatSenderChat": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "close": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "closeForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "closeGeneralForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "convertGiftToStars": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "copyMessage": {
+      "implemented": true,
+      "parameters": [
+        "caption",
+        "caption_entities",
+        "chat_id",
+        "from_chat_id",
+        "message_id",
+        "parse_mode",
+        "reply_markup"
+      ],
+      "quota": "KindSend"
+    },
+    "copyMessages": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "createChatInviteLink": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "createChatSubscriptionInviteLink": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "createForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "createInvoiceLink": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "createNewStickerSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "declineChatJoinRequest": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "declineSuggestedPost": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteAllMessageReactions": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteBusinessMessages": {
+      "implemented": true,
+      "parameters": [
+        "business_connection_id",
+        "lo_context",
+        "lo_delete_all",
+        "lo_request_id",
+        "message_ids"
+      ],
+      "quota": "KindSend"
+    },
+    "deleteChatPhoto": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteChatStickerSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteMessage": {
+      "implemented": true,
+      "parameters": ["chat_id", "message_id"],
+      "quota": "KindSend",
+      "parameterVariants": [
+        {
+          "when": {
+            "present": "business_connection_id"
+          },
+          "parameters": [
+            "business_connection_id",
+            "chat_id",
+            "lo_context",
+            "lo_delete_all",
+            "lo_request_id",
+            "message_id"
+          ]
+        }
+      ]
+    },
+    "deleteMessageReaction": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteMessages": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteMyCommands": {
+      "implemented": true,
+      "parameters": ["language_code", "scope"],
+      "quota": "KindRead"
+    },
+    "deleteStickerFromSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteStickerSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteStory": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "deleteWebhook": {
+      "implemented": true,
+      "parameters": ["drop_pending_updates"],
+      "quota": "KindRead"
+    },
+    "editChatInviteLink": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editChatSubscriptionInviteLink": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editGeneralForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editMessageCaption": {
+      "implemented": true,
+      "parameters": [
+        "caption",
+        "caption_entities",
+        "chat_id",
+        "message_id",
+        "parse_mode",
+        "reply_markup"
+      ],
+      "quota": "KindSend"
+    },
+    "editMessageChecklist": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editMessageLiveLocation": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editMessageMedia": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editMessageReplyMarkup": {
+      "implemented": true,
+      "parameters": ["chat_id", "message_id", "reply_markup"],
+      "quota": "KindSend"
+    },
+    "editMessageText": {
+      "implemented": true,
+      "parameters": [
+        "chat_id",
+        "entities",
+        "message_id",
+        "parse_mode",
+        "reply_markup",
+        "text"
+      ],
+      "quota": "KindSend",
+      "parameterVariants": [
+        {
+          "when": {
+            "present": "business_connection_id"
+          },
+          "parameters": [
+            "business_connection_id",
+            "chat_id",
+            "lo_context",
+            "lo_request_id",
+            "message_id",
+            "text"
+          ]
+        }
+      ]
+    },
+    "editStory": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "editUserStarSubscription": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "exportChatInviteLink": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "forwardMessage": {
+      "implemented": true,
+      "parameters": ["chat_id", "from_chat_id", "message_id"],
+      "quota": "KindSend"
+    },
+    "forwardMessages": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getAvailableGifts": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getBusinessAccountGifts": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getBusinessAccountStarBalance": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getBusinessConnection": {
+      "implemented": true,
+      "parameters": ["business_connection_id"],
+      "quota": "KindRead"
+    },
+    "getChat": {
+      "implemented": true,
+      "parameters": ["chat_id"],
+      "quota": "KindRead"
+    },
+    "getChatAdministrators": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getChatGifts": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getChatMember": {
+      "implemented": true,
+      "parameters": ["chat_id", "user_id"],
+      "quota": "KindRead"
+    },
+    "getChatMemberCount": {
+      "implemented": true,
+      "parameters": ["chat_id"],
+      "quota": "KindRead"
+    },
+    "getChatMenuButton": {
+      "implemented": true,
+      "parameters": ["chat_id"],
+      "quota": "KindRead"
+    },
+    "getCustomEmojiStickers": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getFile": {
+      "implemented": true,
+      "parameters": ["file_id"],
+      "quota": "KindRead"
+    },
+    "getForumTopicIconStickers": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getGameHighScores": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getManagedBotAccessSettings": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getManagedBotToken": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getMe": {
+      "implemented": true,
+      "parameters": [],
+      "quota": "KindRead",
+      "allowUnknownParameters": true
+    },
+    "getMyCommands": {
+      "implemented": true,
+      "parameters": ["language_code", "scope"],
+      "quota": "KindRead"
+    },
+    "getMyDefaultAdministratorRights": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getMyDescription": {
+      "implemented": true,
+      "parameters": ["language_code"],
+      "quota": "KindRead"
+    },
+    "getMyName": {
+      "implemented": true,
+      "parameters": ["language_code"],
+      "quota": "KindRead"
+    },
+    "getMyShortDescription": {
+      "implemented": true,
+      "parameters": ["language_code"],
+      "quota": "KindRead"
+    },
+    "getMyStarBalance": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getStarTransactions": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getStickerSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getUpdates": {
+      "implemented": true,
+      "parameters": ["allowed_updates", "limit", "offset", "timeout"],
+      "quota": "KindUnlimited"
+    },
+    "getUserChatBoosts": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getUserGifts": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getUserPersonalChatMessages": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getUserProfileAudios": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getUserProfilePhotos": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "getWebhookInfo": {
+      "implemented": true,
+      "parameters": [],
+      "quota": "KindRead"
+    },
+    "giftPremiumSubscription": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "hideGeneralForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "leaveChat": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "logOut": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "pinChatMessage": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "postStory": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "promoteChatMember": {
+      "implemented": true,
+      "parameters": [
+        "can_change_info",
+        "can_delete_messages",
+        "can_invite_users",
+        "can_manage_video_chats",
+        "can_pin_messages",
+        "can_promote_members",
+        "can_restrict_members",
+        "chat_id",
+        "user_id"
+      ],
+      "quota": "KindSend"
+    },
+    "proposeBusinessDraft": {
+      "implemented": true,
+      "parameters": [
+        "business_connection_id",
+        "chat_id",
+        "lo_context",
+        "lo_draft_reason",
+        "lo_request_id",
+        "text"
+      ],
+      "quota": "KindSend"
+    },
+    "readBusinessMessage": {
+      "implemented": true,
+      "parameters": [
+        "business_connection_id",
+        "chat_id",
+        "lo_context",
+        "lo_request_id",
+        "message_id"
+      ],
+      "quota": "KindSend"
+    },
+    "refundStarPayment": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "removeBusinessAccountProfilePhoto": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "removeChatVerification": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "removeMyProfilePhoto": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "removeUserVerification": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "reopenForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "reopenGeneralForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "replaceManagedBotToken": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "replaceStickerInSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "repostStory": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "restrictChatMember": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "revokeChatInviteLink": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "savePreparedInlineMessage": {
+      "implemented": true,
+      "parameters": [
+        "allow_bot_chats",
+        "allow_channel_chats",
+        "allow_group_chats",
+        "allow_user_chats",
+        "result",
+        "user_id"
+      ],
+      "quota": "KindRead"
+    },
+    "savePreparedKeyboardButton": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendAnimation": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendAudio": {
+      "implemented": true,
+      "parameters": [
+        "audio",
+        "caption",
+        "caption_entities",
+        "chat_id",
+        "parse_mode",
+        "reply_markup"
+      ],
+      "quota": "KindSend"
+    },
+    "sendBusinessMedia": {
+      "implemented": true,
+      "parameters": [
+        "business_connection_id",
+        "caption",
+        "chat_id",
+        "lo_context",
+        "lo_media",
+        "lo_quote",
+        "lo_request_id"
+      ],
+      "quota": "KindSend"
+    },
+    "sendChatAction": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendChecklist": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendContact": {
+      "implemented": true,
+      "parameters": [
+        "chat_id",
+        "first_name",
+        "last_name",
+        "phone_number",
+        "reply_markup",
+        "vcard"
+      ],
+      "quota": "KindSend"
+    },
+    "sendDice": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendDocument": {
+      "implemented": true,
+      "parameters": [
+        "caption",
+        "caption_entities",
+        "chat_id",
+        "document",
+        "parse_mode",
+        "reply_markup"
+      ],
+      "quota": "KindSend"
+    },
+    "sendGame": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendGift": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendInvoice": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendLivePhoto": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendLocation": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendMediaGroup": {
+      "implemented": true,
+      "parameters": ["chat_id", "media"],
+      "quota": "KindSend"
+    },
+    "sendMessage": {
+      "implemented": true,
+      "parameters": [
+        "chat_id",
+        "entities",
+        "parse_mode",
+        "reply_markup",
+        "text"
+      ],
+      "quota": "KindSend",
+      "parameterVariants": [
+        {
+          "when": {
+            "present": "business_connection_id"
+          },
+          "parameters": [
+            "business_connection_id",
+            "chat_id",
+            "entities",
+            "lo_context",
+            "lo_quote",
+            "lo_request_id",
+            "parse_mode",
+            "text"
+          ]
+        }
+      ]
+    },
+    "sendMessageDraft": {
+      "implemented": true,
+      "parameters": ["chat_id", "draft_id", "entities", "parse_mode", "text"],
+      "quota": "KindRead"
+    },
+    "sendPaidMedia": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendPhoto": {
+      "implemented": true,
+      "parameters": [
+        "caption",
+        "caption_entities",
+        "chat_id",
+        "parse_mode",
+        "photo",
+        "reply_markup"
+      ],
+      "quota": "KindSend"
+    },
+    "sendPoll": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendSticker": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendVenue": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendVideo": {
+      "implemented": true,
+      "parameters": [
+        "caption",
+        "caption_entities",
+        "chat_id",
+        "duration",
+        "height",
+        "parse_mode",
+        "reply_markup",
+        "supports_streaming",
+        "thumbnail",
+        "video",
+        "width"
+      ],
+      "quota": "KindSend",
+      "uploadOnly": ["duration", "width", "height", "thumbnail"]
+    },
+    "sendVideoNote": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "sendVoice": {
+      "implemented": true,
+      "parameters": ["chat_id", "reply_markup", "voice"],
+      "quota": "KindSend"
+    },
+    "setBusinessAccountBio": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setBusinessAccountGiftSettings": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setBusinessAccountName": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setBusinessAccountProfilePhoto": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setBusinessAccountUsername": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setChatAdministratorCustomTitle": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setChatDescription": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setChatMemberTag": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setChatMenuButton": {
+      "implemented": true,
+      "parameters": ["chat_id", "menu_button"],
+      "quota": "KindRead"
+    },
+    "setChatPermissions": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setChatPhoto": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setChatStickerSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setChatTitle": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setCustomEmojiStickerSetThumbnail": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setGameScore": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setManagedBotAccessSettings": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setMessageReaction": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setMyCommands": {
+      "implemented": true,
+      "parameters": ["commands", "language_code", "scope"],
+      "quota": "KindRead"
+    },
+    "setMyDefaultAdministratorRights": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setMyDescription": {
+      "implemented": true,
+      "parameters": ["description", "language_code"],
+      "quota": "KindRead"
+    },
+    "setMyName": {
+      "implemented": true,
+      "parameters": ["language_code", "name"],
+      "quota": "KindRead"
+    },
+    "setMyProfilePhoto": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setMyShortDescription": {
+      "implemented": true,
+      "parameters": ["language_code", "short_description"],
+      "quota": "KindRead"
+    },
+    "setPassportDataErrors": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setStickerEmojiList": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setStickerKeywords": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setStickerMaskPosition": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setStickerPositionInSet": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setStickerSetThumbnail": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setStickerSetTitle": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setUserEmojiStatus": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "setWebhook": {
+      "implemented": true,
+      "parameters": [
+        "allowed_updates",
+        "drop_pending_updates",
+        "max_connections",
+        "secret_token",
+        "url"
+      ],
+      "quota": "KindRead"
+    },
+    "stopMessageLiveLocation": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "stopPoll": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "transferBusinessAccountStars": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "transferGift": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "unbanChatMember": {
+      "implemented": true,
+      "parameters": ["chat_id", "only_if_banned", "user_id"],
+      "quota": "KindSend"
+    },
+    "unbanChatSenderChat": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "unhideGeneralForumTopic": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "unpinAllChatMessages": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "unpinAllForumTopicMessages": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "unpinAllGeneralForumTopicMessages": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "unpinChatMessage": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "upgradeGift": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "uploadStickerFile": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "verifyChat": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    },
+    "verifyUser": {
+      "implemented": false,
+      "parameters": [],
+      "status": 501
+    }
+  },
+  "schemaVersion": 1,
+  "source": {
+    "files": {
+      "../adapters/storage/adapter.go": "e47df3fe18db8bc073b91ab46097d2df914ef0544e0943e5910ff71ef994cf34",
+      "album_photo_metadata.go": "0eb2862310057c61e3afd80a549b3d59cdbc810d8990ee20c0240cd9633a41da",
+      "business.go": "55932a7b5798adfae933c968f2c692e4d2e20125be1294318555cea4c01e3d61",
+      "business_draft.go": "f7bca6bf59e1e4467e278e6c610ef08d4202d7cf4437e699b91f107b2786a85c",
+      "business_quote.go": "85ee9215d689c4d721280e615fa16c33b7514a300292f9f3e55f58ea3bfa96b9",
+      "business_result.go": "e8316def491f348181814f6495510f9428bf419feaad846a13e5131066540993",
+      "business_send_media.go": "3ee624c7eeab325e5c2a087df85f7b7bf4d1b304776bf74b1ae4d9c4e8351f91",
+      "callback.go": "4d1cea3f858e220e6f06b8b306f63d950e9d114b77ab7b6b9d8416176c301a3d",
+      "caption.go": "ba43e1da556ef02fe71e583bd15dc148a063175feb849ce150a5d92838c2a391",
+      "caption_edit.go": "c8d320ed28f49c20079ab59a814a0e94a0d810ffce808f61b58a0c49b196683d",
+      "chat.go": "31dd80c61506d09311dcf112c16698b24006bbb8850adb02636e5ccf016b990d",
+      "commands.go": "4fd9925894099d5aa8d4324613166ee5416764ca94100131485161483bb24a42",
+      "copymessage.go": "9ff124a6a79d8520579ab4f63b833731660290a278c5d17d0347db7d1256fabf",
+      "draft.go": "91dc310729c9b15b20485df9ed7013c419602a9c8ba6be2589b6230e92be18e0",
+      "editdelete.go": "55f61df063366c2a309c776ed9ca9f006b56bfbd3fbd84c33d4df738f8439851",
+      "forward.go": "1153e000c7a7123b8ab594b31746c5cece826ca1f280f45cd0bf64714fe7e746",
+      "getfile.go": "91489a1218467361e25f73802d43165f744fc09751188a22bbdfb630494705e8",
+      "getme.go": "23d9473eacb6d44b57d27eebaa1191e9c7a64db7a0dff321d0963f78f3f9c1b9",
+      "getupdates.go": "d75ba1ddec915269bf5d3ac00014506ca73e33f219cff03fb024cbc55d3ccaf0",
+      "inline.go": "0451ba944ed73813b1ad80918147896c8c297ebb70d688f968a5650f5770624e",
+      "keyboard_edit.go": "92c0463051d0e6ae6d6615c3128f6a9669bfa61f77729577dcc4f84bdfdc957a",
+      "menubutton.go": "13e53afc45cc379a5a07ce917166d28e1e5fc9d9cd168654a627e2c225948172",
+      "params.go": "a569b4e160eecd48bed2fcf24ba4c1af137ed8e821416f8414e9688580f700d6",
+      "prepared.go": "e38ac5746435f90d3e0644254bed2903f88e1e69bb21ee253230b01db68718e9",
+      "refusal.go": "7871902b7edb40ec7de285ab17b6963bc7bb1c016e668e818943248942f32723",
+      "registry.go": "80c19b83cca15a5a7eaebe694ab7cc58920dd6a9d7bb72e24a79b90dfe03fff3",
+      "secretary_file.go": "df1240a5b1f96216d61b574f401a8632432665ef64f6f7896276e4d10d0f2bf8",
+      "sendcontact.go": "3991434438799fecab90b3e6eb1822c863e975e2d94ea8843240c191c8395470",
+      "senddocument.go": "47e8de9b3ed06db9131cbd5c21934a36e4bae3933e5d65cf5a5179527dbff2f4",
+      "sendmedia.go": "8a8ab45922f512fe5bf881e3e683633b68d30f1b57502383c353531dc2079f0f",
+      "sendmediagroup.go": "7746dc131d748104d8102273d7e9e7a620076c9953d4e6829aa0918d14aeaab3",
+      "sendmessage.go": "ec9056c8cc355bc1fc4f0e953f961f990ff98ac2b0aa2c30142a93ae11d4cdb5",
+      "sendphoto.go": "653eae93d8e54783377575307778c855f253c17547f71f5ffd8a10d1cf6f08a3",
+      "sendvideo_upload.go": "b18f202f4275fbd91d44da0fc2026e858540774f60f1b2ab238ff9e141d1ffe8",
+      "sendvoice.go": "367af9b1699e42eb0ebf87f737e37a366ae5f9c552a8f8e7e3485bceb1d6727a",
+      "sent.go": "fd51bbff59b139d1c7660555a6c96097844d177f4fe76a3dea4633bd581f2b72",
+      "stubs.go": "c0269559f830efff2276af567f66779d6ff019044954e088eea5373c5ae83a15",
+      "texts.go": "4e4ec77b37e84de6652f4595f8ca0d77dbdd2e1c0ae049e73eb6222d60454373",
+      "unreachable.go": "ca83b12227ba4cf6a2dded398dfa7d05687239fca108a349f0375e80ae53638a",
+      "upload_refusal.go": "43405a18cc026b5f72544c79be49153a988701bc8521505c14a74f24b2092fb1",
+      "webapp.go": "ed57485ea2f8c373aca2a376024a98b480a526dd307e3310c1329ce982a6707a",
+      "webhook.go": "a6a2c86a9ceddb3a0a77d71eec6f449ea97d9db5aca033096c362d1011a93b8c",
+      "webhookmode.go": "55bf1c738436d977a63d6bcfe37430fba1a62addc710f6260bca0bb0f7fda832",
+      "../../../cmd/bot_contract/extract.go": "ed456835d1f23fc755d3b9633caa30fb94241fff4eb877e76a153b4c5594d201",
+      "../../../cmd/bot_contract/main.go": "92fbfa771bbdd059c5eed3d36e4d2c68f07c29ca644803ec909b00e2c1960c67",
+      "../../../cmd/bot_contract/manifest.go": "898c5c1db2949db9826afd2d85ea20e0f8e148d7980000b0ae8babe2f772f161",
+      "../../../cmd/server/botstats.go": "f7b49d88b930de103696339ff0f3560c8e0c105bc5778f6f4710037167a8a333",
+      "../../../cmd/server/config.go": "69a8820a017a0a7224af361eb41c12ced761b71c92bdee40a787a3b4d59bb949",
+      "../../../cmd/server/main.go": "e095bda3f4769e93fb56508367a1553d1615af986c9ac596f0102f4d62d2b363",
+      "../../../cmd/server/redis_choice.go": "823cace655bc6484795271f196fe0267f935e2140b1f89c9ac249dc0adc62db5",
+      "../../../cmd/server/update_identity.go": "8f64e0349833a01869a4ebd87100ba9f694d88bab0f5a8c602da06e1f1415aeb",
+      "../../../cmd/update_processor/botstats.go": "f3e6b54d465d484f04d7ba73fb794d62b25bde1a9098cf2c8e58bf266081f61b",
+      "../../../cmd/update_processor/config.go": "bf8a5d956a223cf304cfef2fb42c35ce3ac3a103e09b5dcd2f0bd17cc5e9f7bc",
+      "../../../cmd/update_processor/main.go": "6a1a86a122481d888fa73a93591edb61804977b629dd01cab109cc0e50b59a2e",
+      "../../../cmd/update_processor/metrics.go": "a6e9907a6713755c7ff8132aa3694e354e9f69c3f4ff078620ded1769f48ee16",
+      "../../../cmd/update_processor/retention.go": "26c1c2a9e2511ac7f23bf03c5052038c56d8c0925666bdc375de7ca5cab28ff2",
+      "../../../cmd/webhook_deliverer/config.go": "6f81e1737b352038021b03d7c49bf266089652c3c1a6bdde9832ef047e30bb24",
+      "../../../cmd/webhook_deliverer/deliverylog.go": "89b6bf86e869f38609064d871aace0dc1504f61001be6cc65c5f279f4929ee34",
+      "../../../cmd/webhook_deliverer/main.go": "bb9c3e723059e96fa5049f6b66fb1b8084d0ed90ced670fd597d718e8ca80308",
+      "../../../cmd/webhook_deliverer/metrics.go": "b820362b142f7c79245b3d5bb553e9af35deff4ff5a40503a5baf9791b4090f3",
+      "../../controller/connectrpc/bot_app_url.go": "dd1cbc8ca7307a693da3bd3262d53b3377894065ac00e607eb8c2893c53be53b",
+      "../../controller/connectrpc/cloud_storage.go": "a175a77db3755835ce672c6cb1c62bf6a41489d79520359bb03e6bbc929e3640",
+      "../../controller/connectrpc/contact.go": "854f5ae6129561e9d0b90fcd2edc75948cabc45d544c03d515c770a8433d933e",
+      "../../controller/connectrpc/miniapp.go": "5d283237591df72b9a9c89c6e4980ec65f518c8b3ad48c85199f043e24b725e7",
+      "../../controller/connectrpc/registered.go": "129174c2658a17dfa68ca2419b23ecec2463d10f508e755190e04394dbc15107",
+      "../../controller/http/botapi/file.go": "eb453712cec3fe9e9a152c2c263cdccdc07319117beb8971f9430091342b82a3",
+      "../../controller/http/botapi/request.go": "6145c7d3acef9ff039fc10f65f7cb20809d6a71d790cc9fbe3d9d5561f1d12fa",
+      "../../controller/http/botapi/router.go": "8926e2bd26c68bf0b0663b25fa36cc15350a105682a894041c73c59a6cb4eea7",
+      "../../controller/http/botapi/secretary_file.go": "04bb9dfd73eb212ce902dae700323e3151aa759b92c890a9ec04aa83e53280e7",
+      "../../controller/http/internalapi/callbacks.go": "bc1be23101fc97e308130f11789312e27877429eb400ea6718adeb533fb24253",
+      "../../controller/http/internalapi/inline.go": "3af41d8457fb4725994b6d88ecc5e0bcc0d1784ad62e86ee61799bbd172f6eac",
+      "../../controller/http/internalapi/inline_queries.go": "1d98742b8f7cd95c05d2cae9886d753781bbef3ded2e791056e44232e697514e",
+      "../../controller/http/internalapi/prepared.go": "78565598511bd735276012cb502fceabad6acddde23b36512faf58dd06087f39",
+      "../../controller/http/webapp/handler.go": "6119272b8a008894e08e8505cd4d67c7474d421312a11a9ba70c019a0381de1c",
+      "../../controller/http/wellknown/handler.go": "61f8ff48e8b7933b31a51dd092b9cfc5bb9a8fb605dd50c3a36a5e07383ff3dc",
+      "../../conventions/doc.go": "3a62b399d091c5eff2808912b8d45d65a6409fbeb968b6f233801a8f03b879ff",
+      "../../metrics/bot_metrics.go": "f44a6c4be06e5507ad69648f418eb23eb4bf75fce126f12b5835386d5e62e944",
+      "../../metrics/botstats_metrics.go": "bf619871594f763eccff9a0d89c7ca76bd287d5262ede270faf3859f631852a4",
+      "../../metrics/secretary_metrics.go": "9053bebd9f1e08cff5e1f7469b470aa07e38c925b03937f35bf0cb0e66b885bb",
+      "../../model/bot.go": "80fb1b521c1af0b95129d702f77dcab8b13cd08da9fd1e3d8f81d688cda964d0",
+      "../../model/botapi/bot_texts.go": "a8777570cdcff6c0a49438aeaaf4f6d171849cb78551def89208c9591de1ea5b",
+      "../../model/botapi/keyboards.go": "210c451942da7e02c4ed207567436ef2a7de5189aa0044951b6034c901a88963",
+      "../../model/botapi/message.go": "0d490aa82a4b37191164393af3b1f2e9a2b73e55730fb3f2cfacd655ba9477f8",
+      "../../model/botapi/message_origin.go": "cd6677dce3f9cabe53c4e5d1a54f88e1395c5356f1d084c78f43b8446e77b979",
+      "../../model/botapi/update.go": "7517d6a53ec55a534e8c4fee76c6b47a886213e46e59bf1c500b6715281a23d4",
+      "../../model/botapi/user_chat.go": "6b1bfdb3808582e2b64fe61172337d6edce10d870db2c6328e41fddbb4ea5249",
+      "../../model/chat_commands.go": "5ac0ff6305f29a5875ab953812b4608f303d5b8eb1f0a817e39988964a5aef0a",
+      "../../model/cloud_storage.go": "37447a2c326be23ff6816fc09d8621ed0bb6aab0de322f635507e3351a8cff08",
+      "../../model/menu_button.go": "b191082f7bd2ab435a38d38766ea3b5b3629690c2febf5956d051e309edf6b8a",
+      "../../model/profile_errors.go": "67ec71381ee21951b416ef7e8299f6d243854fe159aff8fd080218fdc260b461",
+      "../../model/registered_miniapp.go": "386333aa29d76557d230bef8299242362fcf369b7c7ac4c48f507ee3b222810c",
+      "../../model/update.go": "f0d4b990155def30460fde9e17672665c59f713b2b18a456f826f09bd055de3d",
+      "../../model/update_types.go": "939f369669f848a6b4913c03538bdb0385cef07063a59a2c99a354d2822afb6c",
+      "../../pkg/botpoll/lease.go": "208ee3ec54e1627334f34130d28738d92e2b7a6b47f147c58134ee6c64ff570b",
+      "../../pkg/botpoll/waker.go": "b8d4dcc20e61255e780b221f0609664103ad0dde53690fe4f689fb267e44585d",
+      "../../pkg/botresponse/botresponse.go": "0390d399fef700c71d49ac24467a73ed2c663b0aa5ab4eebc433e6eb5aa6b34e",
+      "../../pkg/fileid/fileid.go": "5833daca5664c15f7ebbde11f2b0abc9da8a474d27b2d6278ad3b77da9982df0",
+      "../../pkg/fileid/secretary.go": "db92e3e9818f9b09e7de030ca238253f44c83871a02b2eff5dbf3d091f201fa9",
+      "../../pkg/inline/inline.go": "bab513bfc2c088243666d1ab68d336f46cc8ba3462a2b08fce7b11b37a45eb23",
+      "../../pkg/inline/store.go": "a5402ea359ede180d8157a259b49df8a45e1df074f487692fda2ea69615f0484",
+      "../../pkg/ratelimit/limiter.go": "53041d520f4663e0a1c4f6f12f5bb707725959c91a4b5eeaea03a56e6856c228",
+      "../../pkg/ratelimit/policy.go": "6b318810ca59ab455c356223edc5dd2d5ecfdf29392058f016770cbb8f6ed3b8",
+      "../../pkg/richtext/parse.go": "f7ce7fb0c29df33f460ed9e6fdbae5974ede117b0ea71dba248f3e2adc6704e2",
+      "../../pkg/secretary/config.go": "7d031bb163c53458c1cacdfdb8a702f97a05b3951ea7dbebab61ea896ad9ab81",
+      "../../pkg/secretary/context.go": "20d8ee306f53ed1640a63a55aa8e0f366488f1d998afd0490c5cd3ba7a4a138e",
+      "../../pkg/webappkeys/keys.go": "02a59e51e0bd05f8b5139652bf7751d07a1a95069a9285f564fcee4ecc93fa26",
+      "../../pkg/webappquery/session.go": "9ebf4360559b2c5da4ed0d7ba781528008dd56db1c433cc7634c0b87cc6867ca",
+      "../../repo/postgres/bot_statistics.go": "7459397341222e3c5143ebec228fee20f1559e57cf8935ceb913861a9e061f60",
+      "../../repo/postgres/bot_tokens.go": "6996e9aee4c220b0e9832ba89665da2f21cb56c05986c6aef9646b46a89e1e3d",
+      "../../repo/postgres/callbacks.go": "4074f78b59c92f263e9566f0bd1485a48f2a394983236398df2be62c5376288d",
+      "../../repo/postgres/cloud_storage.go": "264af18aee442305633696d5c0fa87199db3492b960cfca0d84080f3e732eb27",
+      "../../repo/postgres/inline_queries.go": "c88c78f37005974d91c0f0afe54c3f907fd00bfc5a58b8db9e7c1a08287ce090",
+      "../../repo/postgres/ledger.go": "6a52297ef662664bfa1069ff904351c0e97c47fc534da64a5e01dfbb08b0f6ae",
+      "../../repo/postgres/menu_buttons.go": "3cb20d6f46f37ac39234933e6e88139dd3b04e0c87fd98a2a334820747c61da1",
+      "../../repo/postgres/miniapp_activity.go": "0fb0d59e711670b40b94f9b5303c55e01b333c9d91cb1ec389403c9066be4bc6",
+      "../../repo/postgres/pending.go": "d5d319dfd9d274fdba9e618669a67b6a50affedb92b1ab9aee8eb917ced0c0ec",
+      "../../repo/postgres/prepared_messages.go": "4dd5b055d992dc2c23b56c5ff0d91e9df418d2989fc4bedbc22584f7cbf70f14",
+      "../../repo/postgres/registered_miniapps.go": "a5c8aba05be7931a0666657f723f409a07f0e106cfbc1fdb8430ace13fba10b2",
+      "../../repo/postgres/updates.go": "5e131fee907de1d46f4d098d53c2573d124914f63877c7b013d8fbbf093bcae0",
+      "../adapters/botadmin/cards.go": "55ab9f775a23fd284697fae912d9b807521753a78130d003346e80bfb1b9874d",
+      "../adapters/botadmin/client.go": "5f4a9e40f691b298e3c454b755a1419999467c5f897249e308b96f42fcbd34be",
+      "../adapters/botadmin/commands.go": "34d7efa22fb24b862d894505d4d3ef15aed856ae7b0da0a648ebc56cc46c58b9",
+      "../adapters/botadmin/menu.go": "791e0afcf87063c0a00a208bad39b20cd71d100d0c074e5a19da9465f4b87d2e",
+      "../adapters/botadmin/texts.go": "23d28a5e10c00be11febabc8b9bfb2248e91fc1279f258ed173f8bb04a627f2e",
+      "../adapters/messenger/client.go": "451cc9a5e2188dc6aa8f06b0e599128d227c34ee18dca98c59f23b9ec585c034",
+      "../adapters/messenger/client_caption.go": "41e70dd3deafcde9037ea5e4cca05b35a3e729d37cbd42c28ebdf276f7a2ca08",
+      "../adapters/messenger/client_contact.go": "774c41b2eaae0bb217a92f1adefde6aa2140c515490d529a5c0df26111d1dd62",
+      "../adapters/messenger/client_copy.go": "594f0284e9abd37376cd8b1861646be53441bd2d5fc7a43acbca10e2a37cd60f",
+      "../adapters/messenger/client_draft.go": "144fbe834f384f5d131b0ea656d5b54c2e9706ee4df1d91af824a4940ab4e05b",
+      "../adapters/messenger/client_forward.go": "93ad90f58d4d24ee144eeb61bdbd65d7c7f81495a49d561abb7cb6bba8d5c3cd",
+      "../adapters/messenger/client_keyboard.go": "f96ed241560bac21dd8e58070cc2588528b0554cc01c941ca0faadfa530b8332",
+      "../adapters/messenger/client_media_download.go": "087509af923ff13042f762c6e81ee15bd52f5db5f5ed6544cc047e145e150924",
+      "../adapters/messenger/client_media_keyboard.go": "e3688d6b8bdc3d2e3158295d48fb7a81175ac6133dbb36cd22774a9d92fd7d1a",
+      "../adapters/messenger/client_media_metadata.go": "10d2d5bc3b04f5005226b8e18118079980e63ea7998ccd48b8fa2803268dd24c",
+      "../adapters/messenger/client_miniapp_contact.go": "70b95a93a396dd1b5b360a7bdbbfd332d81c39bda0afbff0aaff67fd10141e0a",
+      "../adapters/messenger/client_mutate.go": "6da3d87b95d4dffde1fc42fe0831e93abc3f4ec15b8e41aaf375c1d2924c07f4",
+      "../adapters/messenger/client_photo_metadata.go": "479753a3f7b3acfdd4b6b9cd8eb78cc8182daf5cd817e8c93ba1c6cf466d6350",
+      "../adapters/messenger/client_video.go": "f621339de23b6b769079ce6b04c1f65acba46245b6bc4795bb92bccac1c644c2",
+      "../adapters/messenger/fields.go": "9af65fa64f9029f9f8818ba122ed823aa2d5cb77ae0b4960350a87b8ac09a58c",
+      "../adapters/messenger/secretary.go": "98ec8b283eee52ee4c72f79331176733865752f759c2a9c1f2881f8b55f25858",
+      "../adapters/messenger/secretary_actions.go": "c5afcba28aeca406adc07437a7b470b745844e7e37290c70e4fe920af7858ea5",
+      "../adapters/messenger/secretary_drafts.go": "e055504883583b2eb49bbe8c10afe23233849e3f4709d1db5f8dcb57e833b2aa",
+      "../adapters/messenger/secretary_media.go": "c4c928a9f81db6b2c4535926b795d1c583d4e1c73270b47611474118ed5daeef",
+      "../adapters/miniapplaunch/resolver.go": "c1832bface29613b79a1cb2dacd4d34ab09649400d0bcdfde19b915af30f17d6",
+      "../adapters/profile/audience.go": "b0574053f3a125dee3b6b330122682fe98a1723c266ad6940e7d10f16f4e8d7f",
+      "../adapters/profile/audience_batch.go": "1bb2883ac7f6352da673608cdbecd202cd54b5c6736b20af0ae174b170a72092",
+      "../adapters/profile/client.go": "bcae7338a243550e8c25aaead9987416e9266793483f8b9c1a77f57957e2d24f",
+      "../adapters/profile/contact.go": "157f62884d2cd65e6be9946d3405a5f6647bb75e5e7fd4940f6e32a2d2bd9d48",
+      "../adapters/storage/video.go": "890c857064d7f09033f32e11121542bba0d67e1050604e512010534313e6922b",
+      "../adapters/unionrole/checker.go": "f0bf0bc9ee2062a0def208b2644f4e394cf97e2acd2106dbc06892f1ad46f750",
+      "../botstats/recorder.go": "e7055bed41af05ffafc065ee89ae9647744155b59b3206e89f529d652457927b",
+      "../botstats/workers.go": "9b42c59997bc85e29e88b76c37756a6ba0f411cccf48bf3008c31d88460034c6",
+      "../callbacks/service.go": "4893d8045fc49e2b6d625432d465c4bdd37956140fe046e383f5fc677d0204b8",
+      "../callbacks/types.go": "8c614c5f085232e58629e6696e53686b59c30fbae4b65f662be28334fa8aa833",
+      "../deliverylog/buffer.go": "98703208b29fa006a3f09b3abd34662189819a59d1d49b4952514a4eb919a485",
+      "../inlinechoice/choose.go": "cc1f29b55f6380b192e9f1bf71b7ded9d9485397c7219f25966df49b6414c6b8",
+      "../inlinequeries/resolve.go": "ae7e551f29957561134207c81e157adcbce6fdb03c52ae5f38f730c52b73b8a1",
+      "../inlinequeries/service.go": "7f92641a60e077e7f5a013e6c256dd33977ae3ae6e1ab5800cbc0bdd9201c80c",
+      "../inlinequeries/types.go": "fb066d14d809345d05806224369ad4a423b0989a5dbf598f491ef26742460b66",
+      "../inlinequeries/wire.go": "be60842bf3445bacf4f5f64b94bb4cd93139e49facf4a1ce919e8274d129c46d",
+      "../miniapp/bot_app_url.go": "fda8c8003e7e95cb5a06bc60f8623dcbcb10c1161cd697d60038c1beee38c29a",
+      "../miniapp/catalog.go": "3afdc5a2e3830cc50388e337753c5655cb93e104b4f372fd3c21a646668a13a7",
+      "../miniapp/cloud_storage.go": "45819702a8c9242d2a89990416678d29b9c6c69061083298ea3a515fd107920b",
+      "../miniapp/contact.go": "8c2ee89113278abc139038015eaa40db3b41747b0f740953f3923c5280e7f35d",
+      "../miniapp/library.go": "c94839bfbe071e67f4ade5709bd6dfdd5bcd5fc82f71da7850fae50a15238d0a",
+      "../miniapp/localization.go": "bd8ad4f9d1e10126e7ec371c2370d902eca86f201d4a9c3652749252e81faad0",
+      "../miniapp/menu.go": "9babac123e129d6d5cb921f0f82c71f079c0f6298aa2f9feac26d391796010d8",
+      "../miniapp/registered.go": "5bd10305cdfec8771dec8209a8f452bbcd8f9b6f7d362fe66c532b1601aee262",
+      "../miniapp/senddata.go": "b6d22cf9e5b907eacbd81aed4ec03ed20e3bc67772baec10e101d1c4261e1a27",
+      "../miniapp/service.go": "fe5db99aa087b0503fe861d9990823de115a6f29cd0d8da0419447658c8b6d44",
+      "../preparedmessages/resolve.go": "caa1ed90900dc42de5880677eef8a575beb12f2e0466bc888ccbc97aeda6998e",
+      "../preparedmessages/service.go": "ed68b5cc267969d939b948b56c510a2ee8860e9c169aa817395ff15419f7dbbc",
+      "../tokenresolver/resolver.go": "06084b79720a917dcc0b1307c0caf08d529144a84d0139465c5912ac86e407e7",
+      "../tokenusage/tracker.go": "24db2d51dcbc07bfe32d15dc5aaba8c025b452013ce9d3f3042d17d365d1f89f",
+      "../updates/business.go": "51f3c7c7525fdbc38369352d7bc5ebb342799ff6cd14b4e527d52f0ab1fb2da8",
+      "../updates/business_media.go": "56e6459212f9cac5f147f94a06fc70d690732f90577eb08009c278cbee960a7a",
+      "../updates/contact.go": "5e23452d2df0d7cdd123d55e21088c0ac6f369d9e7b5aa5c176f452675ec567d",
+      "../updates/forward_origin.go": "790f0357aea71c9f4f969ed60c07226ba9ef35331c54e58a43a65104f39e07da",
+      "../updates/ingest.go": "39409c8ffe2601dc219ed34d0a937f474b5a7be619138497fc0f0e3f505aae24",
+      "../updates/location.go": "71cfe9b15e2c87884890492de68c5059314f8e21cd0eda09ce6753d8d151772a",
+      "../updates/poll.go": "61aaab4b674b31f5731efa5be656c2012238efe284f0e91e74a9102a66d7fd37",
+      "../updates/render.go": "555b016afad23a95bc962656c8ac1eae8854e60f37ed5c3d0a86b13d0f6fb926",
+      "../updates/write_access.go": "76c6d5de420d09cb7d9a6a63397c3c26235121161e947921fd2cd6edc70b430d",
+      "../webhook/deliver.go": "2d97c7aec07a18d975fce81e4de1a93a4f5b46bf43f6960ace67f90152b8e1b7",
+      "../wire/doc.go": "f0a891b5c3499e3d05e3bf8efb473b52147838e2f36baea0a3068fd417ce1139",
+      "../wire/message.go": "900e777cffacf8a97e29084ca4f2c4f0c1cadf7749715427da7c8e6d2564dc24",
+      "../wire/update_identity.go": "ae56d909e2b63c6f5541f48b36f402f6f33a8d67ddea10a6cfb4ee251c8719e0",
+      "../wire/user.go": "58d81cc0c1d9032e8c24e3851438e8d21d6042d5d488e49199b8c4cdf5636b31"
+    },
+    "repository": "LO/messenger",
+    "commit": "285b2f31f809c55f22ad2cb74f6c4e035daa9926"
+  },
+  "transport": {
+    "repeatedMethod": "must_match_route"
+  }
+}

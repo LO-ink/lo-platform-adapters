@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lo-bot-api-emulator"
+version = "0.1.0"
+description = "LO Bot API request contract emulator"
+requires-python = ">=3.11"
+dependencies = ["aiohttp>=3.11,<4"]
+license = "MIT"
+readme = "README.md"
+license-files = ["LICENSE"]
+
+[project.scripts]
+lo-bot-api-emulator = "lo_bot_api_emulator:main"
+
+[tool.setuptools.package-data]
+lo_bot_api_emulator = ["contract.json"]
