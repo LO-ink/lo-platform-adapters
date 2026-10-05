@@ -1,0 +1,54 @@
+name: Publish Python packages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publish-python
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install build and test dependencies
+        run: python -m pip install build twine ./python/lo-aiogram ./python/lo-bot-api-emulator
+      - name: Check the current LO contract
+        run: python -m unittest discover -s python/tests -v
+      - name: Build both distributions
+        run: |
+          python -m build --outdir dist python/lo-aiogram
+          python -m build --outdir dist python/lo-bot-api-emulator
+          python -m twine check --strict dist/*
+      - name: Check wheel consumers
+        run: |
+          python -m venv /tmp/lo-wheel-consumer
+          /tmp/lo-wheel-consumer/bin/pip install dist/*.whl
+          /tmp/lo-wheel-consumer/bin/python -m unittest discover -s python/tests -v
+      - name: Check source distribution consumers
+        run: |
+          python -m venv /tmp/lo-source-consumer
+          /tmp/lo-source-consumer/bin/pip install dist/*.tar.gz
+          /tmp/lo-source-consumer/bin/python -m unittest discover -s python/tests -v
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-distributions
+          path: dist
+      - name: Publish verified distributions
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
