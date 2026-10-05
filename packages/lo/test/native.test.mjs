@@ -454,6 +454,8 @@ test("write-access results are strict booleans and host errors are mapped", asyn
     ["busy", "failed"],
     ["timeout", "timeout"],
     ["host_error", "failed"],
+    ["ABORTED", "aborted"],
+    ["NOT_AVAILABLE", "failed"],
   ]) {
     const failed = client.call("ready", undefined);
     result(host, host.messages.at(-1), {
@@ -931,4 +933,88 @@ test("native snapshot state is isolated from listener and caller mutation", () =
   assert.equal(adapter.snapshot().safeArea.top, 20);
   assert.equal(adapter.snapshot().theme.background, "#101010");
   off();
+});
+
+test("missing inset event payloads never reach listeners or erase validated state", () => {
+  const host = nativePort({
+    events: ["safeAreaChanged", "contentSafeAreaChanged"],
+  });
+  const adapter = createNativeAdapter({ LO: { MiniAppNative: host.port } });
+  const inset = { top: 20, right: 0, bottom: 10, left: 0 };
+  for (const event of ["safeAreaChanged", "contentSafeAreaChanged"]) {
+    let received = 0;
+    const off = adapter.subscribe(event, () => received++);
+    host.emit(
+      baseEnvelope(host.port.generation, {
+        kind: "event",
+        event,
+        payload: inset,
+      }),
+    );
+    host.emit(baseEnvelope(host.port.generation, { kind: "event", event }));
+    assert.equal(received, 1);
+    assert.deepEqual(
+      adapter.snapshot()[
+        event === "safeAreaChanged" ? "safeArea" : "contentSafeArea"
+      ],
+      inset,
+    );
+    off();
+  }
+  assert.equal(host.listeners.size, 0);
+});
+
+test("live host snapshots supersede cached event state after an unsubscribe gap", () => {
+  let snapshot = { viewportHeight: 400, colorScheme: "light" };
+  const host = nativePort({
+    liveSnapshot: true,
+    events: ["viewportChanged"],
+    snapshot: () => snapshot,
+  });
+  const adapter = createNativeAdapter({ LO: { MiniAppNative: host.port } });
+  const off = adapter.subscribe("viewportChanged", () => {
+    assert.equal(adapter.snapshot().viewportHeight, 800);
+  });
+  snapshot = { ...snapshot, viewportHeight: 800 };
+  host.emit(
+    baseEnvelope(host.port.generation, {
+      kind: "event",
+      event: "viewportChanged",
+      payload: { viewportHeight: 800 },
+    }),
+  );
+  off();
+  assert.equal(host.listeners.size, 0);
+  snapshot = { viewportHeight: 1000, colorScheme: "dark" };
+  assert.deepEqual(adapter.snapshot(), snapshot);
+  snapshot = { viewportHeight: -1 };
+  assert.deepEqual(adapter.snapshot(), {
+    viewportHeight: 1000,
+    colorScheme: "dark",
+  });
+});
+
+test("native LO requests retain the 60 second host cap under longer client deadlines", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const host = nativePort({
+    operations: ["shareMessage"],
+    capabilities: ["shareMessage"],
+  });
+  const client = createMiniAppClient(
+    createNativeAdapter({ LO: { MiniAppNative: host.port } }),
+  );
+  const pending = client.call(
+    "shareMessage",
+    { id: "prepared-id" },
+    { timeoutMs: 300_000 },
+  );
+  const rejected = assert.rejects(pending, { code: "timeout" });
+  t.mock.timers.tick(60_000);
+  await rejected;
+  assert.deepEqual(
+    host.messages.map((message) => message.kind),
+    ["request", "cancel"],
+  );
+  assert.equal(host.listeners.size, 0);
+  client.dispose();
 });

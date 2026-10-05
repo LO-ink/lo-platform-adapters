@@ -51,4 +51,8 @@ data; IDs stay strings and avatar URLs are restricted to HTTPS subdomains of
 and cannot distinguish a missing link from denial. Host rollout is separate from
 this adapter release; no host version is claimed until its release is verified.
 
-`themeChanged`, `viewportChanged`, inset and fullscreen events update `snapshot()` before listeners run. Event fields take precedence over a port that continues to return its launch snapshot. Invalid payloads and events received after unsubscribe do not change the snapshot.
+`themeChanged`, `viewportChanged`, inset and fullscreen events update `snapshot()` before listeners run. Older ports return their launch snapshot, so subscribed event fields take precedence for those hosts. The optional LO native transport flag `liveSnapshot: true` declares that the host maintains its snapshot before event delivery, including when no listeners are registered. On those hosts the validated current port snapshot is authoritative, including after an unsubscribe gap. Invalid event payloads cannot erase validated insets.
+
+Native LO requests have a 60-second transport/host deadline. The effective deadline is the shorter of the caller's `timeoutMs` and 60 seconds. A longer SDK default (such as the shared `shareMessage` helper's five minutes) does not extend the LO host deadline. Timeout sends a best-effort cancellation and releases listeners; it cannot undo a native action that has already completed.
+
+Hosts that suspend UI operations while the Mini App is hidden report `ABORTED` for interrupted UI requests and `NOT_AVAILABLE` for new UI requests. The adapter maps these to the existing SDK codes `aborted` and `failed`, respectively; they are valid host failures, not malformed responses. Older host error codes remain supported.
