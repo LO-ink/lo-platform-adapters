@@ -1,6 +1,6 @@
 import { setTimeout as wait } from "node:timers/promises";
 import { createBotClient, createSecretaryClient } from "@lo-ink/bot-sdk";
-import { createLoHttpBotTransport } from "../../packages/bot-http-lo/dist/index.js";
+import { createLoHttpBotTransport } from "@lo-ink/bot-sdk";
 import { openSecretaryState } from "./state.mjs";
 import { createReferenceSecretary } from "./reference.mjs";
 import { createSecretaryWebhookServer } from "./webhook.mjs";

@@ -14,7 +14,7 @@ Use Node 22+ and the matching SDK/HTTP adapter. From this repository:
 
 ```sh
 npm ci
-npm run build --workspace @lo-ink/bot-http-lo
+npm run build
 # Set credentials through your secret manager or private environment, not source.
 export LO_SECRETARY_STATE=/private/path/secretary/state.json
 node examples/secretary/run.mjs
@@ -79,7 +79,7 @@ back it up under the same retention rules. Logs contain status codes only.
 
 ```sh
 node --test test/secretary-reference.test.mjs
-npm test --workspace @lo-ink/bot-http-lo
+npm test
 ```
 
 Local tests cover owners A/D, separate chat scopes, restart/replay, uncertain

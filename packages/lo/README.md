@@ -1,20 +1,20 @@
 # `@lo-ink/adapter-lo`
 
-Native LO integration for `@lo-ink/miniapp-sdk`. Version 0.23 requires miniapp-sdk 0.20 and discovers only
-`LO.MiniAppNative` and speaks the LO-owned, versioned JSON protocol. There is no
-compatibility dependency, script loading or automatic fallback.
+Compatibility exports for the native transport owned by `@lo-ink/miniapp-sdk`.
+Version 0.24 requires SDK 0.22. New applications use one package:
 
 ```ts
-import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
-import { createAdapter } from "@lo-ink/adapter-lo";
-
-const adapter = createAdapter();
-if (!adapter) throw new Error("A supported LO host is required");
-const client = createMiniAppClient(adapter);
+import { createLoClient } from "@lo-ink/miniapp-sdk";
+const client = createLoClient();
+if (!client) throw new Error("A supported LO host is required");
 ```
 
+Existing `createAdapter`, `detectAdapter` and `createNativeAdapter` imports are
+aliases of the SDK implementation. Native types remain exported. This package
+contains no decoder or independent connection/request state.
+
 Discovery returns `null` for an absent or invalid port. Capabilities are the
-intersection of operations implemented by this package and the features
+intersection of operations implemented by the SDK and the features
 explicitly advertised by the host. Unknown host features are ignored. A failed
 native request is never replayed through another transport.
 

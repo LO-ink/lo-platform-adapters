@@ -30,7 +30,7 @@ const packages = [
   "vk",
 ];
 try {
-  const archives = ["@lo-ink/miniapp-sdk@0.20.3", "@lo-ink/bot-sdk@0.4.2"];
+  const archives = ["@lo-ink/miniapp-sdk@0.22.0", "@lo-ink/bot-sdk@0.5.0"];
   for (const folder of packages) {
     const manifest = JSON.parse(
       readFileSync(join(root, "packages", folder, "package.json")),
@@ -53,6 +53,12 @@ try {
     assert.ok(files.includes("package/LICENSE"));
     assert.ok(files.includes("package/dist/index.js"));
     assert.ok(files.includes("package/dist/index.d.ts"));
+    if (["lo", "bot-http-lo"].includes(folder))
+      assert.deepEqual(
+        files.filter((file) => file.startsWith("package/dist/")).sort(),
+        ["package/dist/index.d.ts", "package/dist/index.js"],
+        "native shims must not ship a second implementation",
+      );
     assert.ok(
       !files.some(
         (file) => file.includes("node_modules/") || file.includes("vendor/"),

@@ -1,14 +1,11 @@
 import {
   bindAppearance,
-  createMiniAppClient,
+  createLoClient,
   requestWriteAccess,
 } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "@lo-ink/adapter-lo";
 
-const adapter = createLoAdapter();
-if (!adapter) throw new Error("Open this Mini App inside LO");
-
-const client = createMiniAppClient(adapter);
+const client = createLoClient();
+if (!client) throw new Error("Open this Mini App inside LO");
 const media = matchMedia("(prefers-color-scheme: dark)");
 const stopAppearance = bindAppearance(client, {
   root: document.documentElement,
