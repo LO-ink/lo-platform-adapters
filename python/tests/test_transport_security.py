@@ -171,3 +171,94 @@ class TransportSecurity(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(caught.exception.lo_reason, "method_not_implemented")
         self.assertEqual(caught.exception.lo_parameter, "sendChatAction")
+
+    async def test_error_response_boundaries_redact_credentials_without_changing_success(self):
+        from urllib.parse import quote
+
+        from aiogram.exceptions import (
+            ClientDecodeError,
+            TelegramBadRequest,
+            TelegramMigrateToChat,
+            TelegramRetryAfter,
+        )
+
+        encoded = quote(TOKEN, safe="")
+        cases = [
+            (
+                400,
+                {"ok": False, "error_code": 400, "description": f"request /bot{TOKEN}/sendMessage"},
+                TelegramBadRequest,
+            ),
+            (
+                429,
+                {
+                    "ok": False,
+                    "error_code": 429,
+                    "description": f"request {encoded.lower()}",
+                    "parameters": {"retry_after": 12},
+                },
+                TelegramRetryAfter,
+            ),
+            (
+                400,
+                {
+                    "ok": False,
+                    "error_code": 400,
+                    "description": TOKEN,
+                    "parameters": {"migrate_to_chat_id": -123},
+                },
+                TelegramMigrateToChat,
+            ),
+            (200, "private-marker " + TOKEN, ClientDecodeError),
+            (200, b"\xffprivate-marker " + TOKEN.encode(), ClientDecodeError),
+            (503, b"\xffprivate-marker " + TOKEN.encode(), TelegramServerError),
+            (
+                200,
+                {"ok": True, "result": {"text": TOKEN, "private": "private-marker"}},
+                ClientDecodeError,
+            ),
+        ]
+        for status, payload, expected in cases:
+
+            async def response(request, status=status, payload=payload):
+                if isinstance(payload, bytes):
+                    return web.Response(status=status, body=payload)
+                if isinstance(payload, str):
+                    return web.Response(status=status, text=payload)
+                return web.json_response(payload, status=status)
+
+            session = self.session(await self.server(response))
+            bot = Bot(TOKEN, session=session)
+            with self.assertRaises(expected) as caught:
+                await session.make_request(bot, SendMessage(chat_id=42, text="test"))
+            error = caught.exception
+            for output in (str(error), repr(error), "".join(traceback.format_exception(error))):
+                self.assertNotIn(TOKEN, output)
+                self.assertNotIn(encoded.lower(), output.lower())
+            self.assertIsNone(error.__cause__)
+            if expected is ClientDecodeError:
+                self.assert_safe(error)
+            elif expected is TelegramRetryAfter:
+                self.assertEqual(error.retry_after, 12)
+            elif expected is TelegramMigrateToChat:
+                self.assertEqual(error.migrate_to_chat_id, -123)
+
+        session = self.session("http://127.0.0.1:1")
+        bot = Bot(TOKEN, session=session)
+        result = session.check_response(
+            bot,
+            SendMessage(chat_id=42, text="test"),
+            200,
+            json.dumps(
+                {
+                    "ok": True,
+                    "result": {
+                        "message_id": 1,
+                        "date": 1800000000,
+                        "chat": {"id": 42, "type": "private"},
+                        "text": TOKEN,
+                    },
+                }
+            ),
+        ).result
+        self.assertEqual(result.text, TOKEN)

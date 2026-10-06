@@ -14,6 +14,6 @@ Close the session when the bot stops. Use HTTPS for custom base_url. Tests may e
 
 Unsupported fields, mixed albums, disabled video uploads and unimplemented methods fail explicitly. The adapter never strips fields, changes a video into a document, splits an album, retries a mutation or returns success for an unsupported operation. Existing Telegram handlers must be adapted to the documented LO contract. Read installation capabilities explicitly through getMe when needed.
 
-Structured server failure parameters are exposed as lo_reason and lo_parameter on aiogram exceptions. Non-JSON HTTP 5xx responses become TelegramServerError without exposing HTML diagnostics. Secretary requests with business_connection_id are rejected locally; use the native Bot SDK with LO consent context.
+Structured server failure parameters are exposed as lo_reason and lo_parameter on aiogram exceptions. HTTP 5xx responses become TelegramServerError without exposing server diagnostics. Redirects are refused. Network and malformed-response exceptions expose no authenticated URLs or raw response bodies; typed API errors redact the configured bot credential while preserving retry, migration and LO refusal metadata. Successful response data is unchanged. Secretary requests with business_connection_id are rejected locally; use the native Bot SDK with LO consent context.
 
 The packaged contract describes accepted requests. Tests run real aiogram clients against the strict LO emulator; the emulator does not reproduce production storage, authentication, transcoding or permissions.
