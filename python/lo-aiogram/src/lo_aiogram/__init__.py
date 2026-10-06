@@ -1,11 +1,17 @@
 """LO HTTP serialization for aiogram, without automatic request adaptation."""
 
 import json
-from urllib.parse import urlsplit
+import re
+from urllib.parse import quote, urlsplit
 
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
-from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError, TelegramServerError
+from aiogram.exceptions import (
+    ClientDecodeError,
+    TelegramAPIError,
+    TelegramNetworkError,
+    TelegramServerError,
+)
 from aiogram.types import InputFile
 from aiohttp import ClientError, ClientTimeout, FormData
 
@@ -49,8 +55,19 @@ class LoAiohttpSession(AiohttpSession):
                     raise TelegramNetworkError(
                         method=method, message="LO Bot API redirects are not allowed"
                     )
-                content = await response.text()
                 status = response.status
+                try:
+                    content = await response.text()
+                except UnicodeError:
+                    if status >= 500:
+                        raise TelegramServerError(
+                            method=method, message="LO Bot API is temporarily unavailable"
+                        ) from None
+                    raise ClientDecodeError(
+                        "LO Bot API returned an invalid response",
+                        ValueError("Invalid API response"),
+                        "[redacted]",
+                    ) from None
         except TimeoutError:
             raise TelegramNetworkError(
                 method=method, message="LO Bot API request timed out"
@@ -106,7 +123,19 @@ class LoAiohttpSession(AiohttpSession):
                     method=method, message="LO Bot API is temporarily unavailable"
                 )
             return super().check_response(bot, method, status_code, content)
-        except (TelegramBadRequest, TelegramServerError) as error:
+        except ClientDecodeError:
+            raise ClientDecodeError(
+                "LO Bot API returned an invalid response",
+                ValueError("Invalid API response"),
+                "[redacted]",
+            ) from None
+        except TelegramAPIError as error:
+            message = error.message or "LO Bot API request failed"
+            message = message.replace(bot.token, "[redacted]")
+            message = re.sub(
+                re.escape(quote(bot.token, safe="")), "[redacted]", message, flags=re.IGNORECASE
+            )
+            error.message = message
             try:
                 parameters = json.loads(content).get("parameters", {})
             except (ValueError, TypeError, AttributeError):
@@ -126,4 +155,4 @@ class LoAiohttpSession(AiohttpSession):
                     metadata["lo_parameter"] = parameter
                 for attribute, value in metadata.items():
                     setattr(error, attribute, value)
-            raise
+            raise error from None
