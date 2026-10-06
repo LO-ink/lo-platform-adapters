@@ -51,8 +51,9 @@ acknowledging a webhook. Stop obsolete work after permanent denials or conflicts
 Respect quota delays without changing request identity. Keep unknown outcomes
 visible until reconciled, including a client cancellation after server commit.
 
-Message snapshots in action receipts have a bounded server recovery window;
-expired receipts do not authorize a fresh send. Canonical chat history has its
-own lifecycle. Owner draft recovery and bot action recovery are different APIs.
+Confirm action-receipt snapshot retention and recovery windows for your deployed
+backend; an SDK upgrade does not add server retention. An expired receipt never
+authorizes a replacement request key. Canonical chat history has its own lifecycle.
+Owner draft recovery and bot action recovery are different APIs.
 Logs and exports contain safe outcome codes and metadata, never message bodies,
 media URLs, credentials or AI prompts.
