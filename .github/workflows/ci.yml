@@ -93,6 +93,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: LO-ink/lo-developer-tools/actions/publish-npm@1b3c4611e54aa911dfdc22942ec98a6c1d41b13c
+      - uses: LO-ink/lo-developer-tools/actions/publish-npm@a38730ebce67eaf592012fbc671267f37a1def47
         with:
           package-paths: '["packages/compat","packages/bot-http-lo","packages/telegram-to-lo","packages/vk","packages/telegram","packages/lo","packages/lo-legacy"]'
