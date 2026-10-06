@@ -227,6 +227,43 @@ test("preserves typed rate-limit guidance, never retries, and sanitizes server c
   assert.equal(calls, 1);
 });
 
+test("bad-request descriptions redact encoded credentials before truncation", async (t) => {
+  let description;
+  const fixture = await server((_request, response) => {
+    reply(
+      response,
+      400,
+      JSON.stringify({
+        ok: false,
+        error_code: 400,
+        description,
+        parameters: { reason: "upload_only", parameter: "width" },
+      }),
+    );
+  });
+  t.after(fixture.close);
+  const client = createBotClient(transport(fixture.url));
+  const encoded = encodeURIComponent(token);
+  for (const credential of [token, encoded, encoded.replace("%3A", "%3a")]) {
+    for (const prefix of ["Invalid credential: ", "x".repeat(1000)]) {
+      description = `${prefix}${credential}`;
+      await assert.rejects(client.getIdentity(), (error) => {
+        assert.equal(error.code, "invalid-input");
+        assert.equal(error.status, 400);
+        assert.equal(error.platformCode, 400);
+        assert.deepEqual(error.details, {
+          reason: "upload_only",
+          parameter: "width",
+        });
+        assert.equal(error.description, `${prefix}[redacted]`);
+        assert.equal(JSON.stringify(error).includes(credential), false);
+        assert.equal(error.stack.includes(credential), false);
+        return true;
+      });
+    }
+  }
+});
+
 test("maps conflict and unsupported responses to canonical errors", async (t) => {
   for (const [status, expected] of [
     [409, "conflict"],

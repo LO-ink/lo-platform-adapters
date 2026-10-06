@@ -693,11 +693,11 @@ export function createLoHttpBotTransport(
       const safeDescription =
         typeof description === "string"
           ? description
-              .slice(0, 1024)
               .split(token)
               .join("[redacted]")
-              .replace(/[1-9][0-9]*:[A-Za-z0-9_-]+/g, "[redacted]")
+              .replace(/[1-9][0-9]*(?::|%3[aA])[A-Za-z0-9_-]+/g, "[redacted]")
               .replace(/https?:\/\/[^\s]+/g, "[URL]")
+              .slice(0, 1024)
           : undefined;
       return new BadRequest(safeDescription, status, platformCode, details);
     }
