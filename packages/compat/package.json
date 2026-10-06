@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-webapp-compat",
-  "version": "0.20.1",
+  "version": "0.20.2",
   "description": "Shared implementation detail for LO WebApp compatibility adapters",
   "type": "module",
   "license": "MIT",

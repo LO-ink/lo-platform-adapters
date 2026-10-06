@@ -143,7 +143,19 @@ export function createWebAppAdapter(
   id: string,
   webApp: LegacyWebApp,
   capabilities: ReadonlySet<Capability>,
+  options: { contentSafeAreaIncludesSystem?: boolean } = {},
 ): MiniAppAdapter {
+  const contentSafeArea = () => {
+    const content = normalizeInsets(webApp.contentSafeAreaInset);
+    if (!content || !options.contentSafeAreaIncludesSystem) return content;
+    const safe = normalizeInsets(webApp.safeAreaInset);
+    return {
+      top: Math.max(0, content.top - (safe?.top ?? 0)),
+      right: Math.max(0, content.right - (safe?.right ?? 0)),
+      bottom: Math.max(0, content.bottom - (safe?.bottom ?? 0)),
+      left: Math.max(0, content.left - (safe?.left ?? 0)),
+    };
+  };
   const snapshot = (): HostSnapshot => ({
     colorScheme:
       webApp.colorScheme === "dark"
@@ -161,7 +173,7 @@ export function createWebAppAdapter(
         ? webApp.viewportStableHeight
         : undefined,
     safeArea: normalizeInsets(webApp.safeAreaInset),
-    contentSafeArea: normalizeInsets(webApp.contentSafeAreaInset),
+    contentSafeArea: contentSafeArea(),
     isFullscreen:
       typeof webApp.isFullscreen === "boolean"
         ? webApp.isFullscreen
@@ -198,7 +210,7 @@ export function createWebAppAdapter(
         else if (event === "safeAreaChanged")
           payload = normalizeInsets(webApp.safeAreaInset);
         else if (event === "contentSafeAreaChanged")
-          payload = normalizeInsets(webApp.contentSafeAreaInset);
+          payload = contentSafeArea();
         else if (event === "fullscreenChanged")
           payload = webApp.isFullscreen === true;
         else if (
@@ -233,11 +245,37 @@ export function createWebAppAdapter(
           return;
         listener(payload as MiniAppEventMap[K]);
       };
-      webApp.onEvent(eventNames[event], rawListener);
+      // Absolute host content insets depend on both legacy values. Recalculate
+      // after either event, including hosts that emit the two changes separately.
+      const names =
+        event === "contentSafeAreaChanged" &&
+        options.contentSafeAreaIncludesSystem
+          ? [eventNames[event], eventNames.safeAreaChanged]
+          : [eventNames[event]];
+      const removeListeners = (suppressErrors = false) => {
+        const failures: unknown[] = [];
+        for (const name of names) {
+          try {
+            webApp.offEvent?.(name, rawListener);
+          } catch (error) {
+            failures.push(error);
+          }
+        }
+        if (!suppressErrors && failures.length) throw failures[0];
+      };
+      try {
+        for (const name of names) webApp.onEvent(name, rawListener);
+      } catch (error) {
+        active = false;
+        // Preserve the registration error after attempting every removal.
+        // A host retaining any failed removal still cannot notify this listener.
+        removeListeners(true);
+        throw error;
+      }
       return () => {
         if (!active) return;
         active = false;
-        webApp.offEvent?.(eventNames[event], rawListener);
+        removeListeners();
       };
     },
     execute<K extends MiniAppOperation>(
