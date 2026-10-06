@@ -36,19 +36,32 @@ jobs:
           /tmp/lo-source-consumer/bin/python -m unittest discover -s python/tests -v
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: python-distributions
-          path: dist/*
+          name: python-lo-aiogram
+          path: dist/lo_aiogram-*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-lo-bot-api-emulator
+          path: dist/lo_bot_api_emulator-*
           if-no-files-found: error
   publish:
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact: python-lo-aiogram
+            environment: pypi
+          - artifact: python-lo-bot-api-emulator
+            environment: pypi-emulator
+    environment: ${{ matrix.environment }}
     permissions:
       id-token: write
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: python-distributions
+          name: ${{ matrix.artifact }}
           path: dist
       - name: Publish verified distributions
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
