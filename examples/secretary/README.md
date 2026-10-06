@@ -5,6 +5,9 @@ a production hosting system. Bot capability and owner consent are prerequisites.
 The owner chooses the chats and six independent rights in LO. Server policy is
 checked again at delivery and every write.
 
+See the [owner-consent guide](https://github.com/LO-ink/lo-developer-tools/blob/main/docs/secretary.md)
+and [operations and recovery](../../docs/secretary.md).
+
 ## Run locally or on staging
 
 Use Node 22+ and the matching SDK/HTTP adapter. From this repository:
