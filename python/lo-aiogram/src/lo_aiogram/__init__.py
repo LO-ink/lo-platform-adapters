@@ -80,6 +80,7 @@ class LoBotApiCompat:
             raise ValueError("Invalid capability refresh interval")
         self.capability_refresh_interval, self.probe_capabilities = capability_refresh_interval, probe_capabilities
         self.next_capability_check = {}
+        self._capability_owners = {}
         self.feature_ttl, self.max_video_retry_after = feature_ttl, max_video_retry_after
         self.sleep, self.clock = sleep, clock
         self.video_disabled, self.chat_action_disabled, self.unsupported, self.warned = {}, set(), {}, set()
@@ -93,9 +94,19 @@ class LoBotApiCompat:
         scope = self.scope(bot)
         self.video_disabled.pop(scope, None)
         self.next_capability_check.pop(scope, None)
+        self._capability_owners.pop(scope, None)
         self.chat_action_disabled.discard(scope)
         self.unsupported = {key: value for key, value in self.unsupported.items() if key[0] != scope}
         self.warned = {key for key in self.warned if key[0] != scope}
+
+    async def _read_capabilities(self, make_request, bot, method, scope):
+        # Fence older completions, including after reset or a failed refresh.
+        owner = object()
+        self._capability_owners[scope] = owner
+        identity = await make_request(bot, method)
+        if self._capability_owners.get(scope) is owner:
+            self.remember_capabilities(scope, identity)
+        return identity
 
     def remember_capabilities(self, scope, identity):
         self.next_capability_check[scope] = self.clock() + self.capability_refresh_interval
@@ -216,11 +227,9 @@ class LoBotApiCompat:
         original = method
         method = self.filtered(bot, method)
         if name == "getMe":
-            identity = await make_request(bot, method)
-            self.remember_capabilities(scope, identity)
-            return identity
+            return await self._read_capabilities(make_request, bot, method, scope)
         if name == "sendVideo" and self.probe_capabilities and self.next_capability_check.get(scope, 0) <= self.clock():
-            self.remember_capabilities(scope, await make_request(bot, GetMe()))
+            await self._read_capabilities(make_request, bot, GetMe(), scope)
         if name == "sendChatAction" and scope in self.chat_action_disabled:
             return True
         try:
