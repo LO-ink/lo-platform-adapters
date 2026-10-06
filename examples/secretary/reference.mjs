@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 const reply =
-  "Здравствуйте! Ваше сообщение получено. Владелец ответит, когда сможет.";
+  "Hello! Your message has been received. The owner will reply when available.";
 const hour = 3600000;
 const terminal = new Set([
   "forbidden",

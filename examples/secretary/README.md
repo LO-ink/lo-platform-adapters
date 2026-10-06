@@ -7,7 +7,7 @@ checked again at delivery and every write.
 
 ## Run locally or on staging
 
-Use Node 22+ and the matching 0.2 SDK/HTTP adapter. From this repository:
+Use Node 22+ and the matching SDK/HTTP adapter. From this repository:
 
 ```sh
 npm ci
@@ -29,8 +29,7 @@ and chat can enable them. The server checks the exact greeting template, IANA
 timezone, selected weekdays, hours and minimum interval on every send. Changing
 connection permissions disables the previous automatic consent.
 
-The fixed template is `Здравствуйте! Ваше сообщение получено. Владелец ответит,
-когда сможет.` (one space after the comma; no newline). `LO_SECRETARY_AUTO_CHATS`
+The fixed template is `Hello! Your message has been received. The owner will reply when available.` (one space after the comma; no newline). `LO_SECRETARY_AUTO_CHATS`
 is an optional operator restriction: a JSON array of `connectionId` and `chatId`
 strings. An empty array processes all chats allowed by the owner's policy. This
 operator setting **never authorizes automatic sending**. The sample limits

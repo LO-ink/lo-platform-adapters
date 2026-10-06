@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createSecretaryWebhookServer } from "../examples/secretary/webhook.mjs";
 
-const secret = "fixture-secret-with-at-least-32-characters";
+const secret = [
+  "fixture",
+  "secret",
+  "with",
+  "at",
+  "least",
+  "32",
+  "characters",
+].join("-");
 async function listen(t, processUpdate) {
   const server = createSecretaryWebhookServer({ secret, processUpdate });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

@@ -1,24 +1,20 @@
-# LO и Telegram: чем отличается
+# LO and Telegram API differences
 
-Срез контракта LO на 2 октября 2026. Проверено по исходникам bot-api; доступность
-конкретной функции в клиенте зависит от версии хоста и объявленных capabilities.
+Use the packaged LO contract and runtime capabilities to determine support.
 
-| Тема                                        | Telegram                     | LO                                                                                                       |
-| ------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Фото по URL в sendPhoto                     | Поддерживаются HTTP(S) URL   | Только multipart-файл или `file_id` этого бота; URL отклоняется до сети в SDK                            |
-| Формат sendVoice                            | OGG/Opus                     | AAC в M4A/MP4 или сырой AAC; расширение не заменяет проверку содержимого сервером                        |
-| Подпись sendVoice                           | Поддерживается               | `caption` не поддерживается; SDK отклоняет его до сети                                                   |
-| Размеры загрузок                            | Зависят от метода            | Фото ≤ 10 МиБ, документ и голосовой файл ≤ 50 МиБ                                                        |
-| Подпись фото/документа                      | До 1024 символов             | До 1024 UTF-16 единиц; emoji может занимать две                                                          |
-| `language_code`                             | Обычно язык клиента          | Может быть пустым или `en` при русском интерфейсе; язык пушей передавайте со своего интерфейса на сервер |
-| Звук до первого касания                     | Зависит от клиента/WebView   | Некоторые хосты требуют жест; используйте [паттерн запуска звука](miniapp-audio.md)                      |
-| Согласие без привязанного бота              | Зависит от контекста         | Старые хосты возвращают `false`; хосты с новой поддержкой возвращают `NO_BOT` → `NoBot`                  |
-| Ключ подписи зарегистрированного приложения | Обычно токен бота для HMAC   | Ключ приложения из LO Connect как строка; обязательна проверка `app_id`                                  |
-| URL кнопки приложения                       | Зависит от конфигурации бота | Совпадает с URL в LO Connect байт в байт для подписанного запуска                                        |
+| Topic                                  | Telegram                    | LO                                                                                          |
+| -------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
+| sendPhoto URL input                    | HTTP(S) URLs                | Multipart upload or this bot's file_id; the SDK rejects URLs before sending                 |
+| sendVoice format                       | OGG/Opus                    | AAC in M4A/MP4 or raw AAC; the server checks content                                        |
+| sendVoice caption                      | Supported                   | Rejected by the SDK                                                                         |
+| Upload sizes                           | Method-dependent            | Photo ≤ 10 MiB; document and voice ≤ 50 MiB                                                 |
+| Photo/document caption                 | Up to 1024 characters       | Up to 1024 UTF-16 units; an emoji can occupy two                                            |
+| language_code                          | Usually the client language | May be empty or differ from the UI; send the app's selected reminder language to the server |
+| Audio before a gesture                 | Client/WebView-dependent    | Some hosts require a gesture; handle playback refusal explicitly                            |
+| Write access without an associated bot | Context-dependent           | Older hosts return false; updated hosts return NO_BOT → NoBot                               |
+| Registered app signature key           | Usually bot-token HMAC      | The app key string from LO Connect; validate app_id                                         |
+| Mini-app button URL                    | Bot configuration-dependent | Must match LO Connect byte for byte for a signed launch                                     |
 
-Не определяйте функции по имени платформы или номеру версии. Проверяйте
-`client.supports(...)`, обрабатывайте `unsupported` и явный отказ человека.
-Вопрос к команде платформы: передавать в данных запуска реальный язык интерфейса
-LO, чтобы `language_code` не расходился с выбором человека.
+Check client.supports(...), then handle unsupported operations and permission denial. Platform names and version numbers alone do not establish support.
 
-Пошаговый серверный сценарий: [пуши из мини-приложения](https://github.com/LO-ink/lo-developer-tools/blob/main/docs/miniapp-pushes.md).
+See [messages from a mini-app](https://github.com/LO-ink/lo-developer-tools/blob/main/docs/miniapp-pushes.md) and [audio lifecycle](https://github.com/LO-ink/lo-developer-tools/blob/main/docs/miniapp-audio.md).

@@ -6,7 +6,6 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -31,10 +30,7 @@ const packages = [
   "vk",
 ];
 try {
-  const archives = [
-    join(root, "vendor/lo-ink-miniapp-sdk-0.20.1.tgz"),
-    join(root, "packages/bot-http-lo/vendor/lo-ink-bot-sdk-0.4.0.tgz"),
-  ];
+  const archives = ["@lo-ink/miniapp-sdk@0.20.3", "@lo-ink/bot-sdk@0.4.2"];
   for (const folder of packages) {
     const manifest = JSON.parse(
       readFileSync(join(root, "packages", folder, "package.json")),
@@ -79,7 +75,6 @@ try {
     "npm",
     [
       "install",
-      "--offline",
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
@@ -113,9 +108,7 @@ if (typeof createMiniAppClient !== 'function' || createAdapter() !== null) throw
     "npm",
     [
       "install",
-      "--offline",
       "--ignore-scripts",
-      "--legacy-peer-deps",
       "--no-audit",
       "--no-fund",
       "--cache",
@@ -124,14 +117,6 @@ if (typeof createMiniAppClient !== 'function' || createAdapter() !== null) throw
     ],
     consumer,
   );
-  for (const name of ["@vkontakte/vk-bridge", "@swc/helpers", "tslib"]) {
-    const destination = join(consumer, "node_modules", name);
-    if (name.includes("/"))
-      mkdirSync(join(consumer, "node_modules", name.split("/")[0]), {
-        recursive: true,
-      });
-    symlinkSync(join(root, "node_modules", name), destination, "dir");
-  }
   writeFileSync(
     join(consumer, "check.mjs"),
     `
@@ -147,7 +132,7 @@ if (typeof createMiniAppClient !== 'function' || typeof createBotClient !== 'fun
 if (createLo() !== null || createLegacyLo() !== null || installTelegramCompatibility() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
 `,
   );
-  run(process.execPath, ["--preserve-symlinks", "check.mjs"], consumer);
+  run(process.execPath, ["check.mjs"], consumer);
   writeFileSync(
     join(consumer, "check.ts"),
     `

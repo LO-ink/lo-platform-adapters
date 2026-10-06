@@ -3,3 +3,13 @@ node_modules
 **/package-lock.json
 vendor
 **/vendor
+
+coverage/
+.venv/
+**/*.tgz
+.ruff_cache/
+.mypy_cache/
+
+**/*.egg-info
+**/build
+coverage-go.out

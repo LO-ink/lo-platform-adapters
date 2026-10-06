@@ -29,6 +29,7 @@ export function interactionUpdate(
       !callback.id ||
       callback.id.length > 1024 ||
       callback.id.trim() !== callback.id ||
+      // eslint-disable-next-line no-control-regex -- Reject control bytes in untrusted input.
       /[\u0000-\u001f]/.test(callback.id) ||
       (callback.data !== undefined && typeof callback.data !== "string")
     )

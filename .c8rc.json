@@ -1,0 +1,12 @@
+{
+  "all": true,
+  "include": ["packages/*/dist/**/*.js", "examples/secretary/*.mjs"],
+  "exclude": ["**/*.d.ts"],
+  "extension": [".js", ".mjs", ".ts", ".tsx"],
+  "reporter": ["text", "json-summary", "lcov"],
+  "check-coverage": true,
+  "lines": 85,
+  "statements": 85,
+  "functions": 90,
+  "branches": 75
+}

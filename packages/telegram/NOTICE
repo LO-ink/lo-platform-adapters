@@ -1,2 +1,3 @@
-Compatibility behavior derived from zaytcevcom/lo-miniapp-sdk 0.18.0 at
-15b832edfd03559b12cbb2e843141f10532f5c96.
+Compatibility translations derive from the MIT-licensed LO Mini App SDK
+and LO application runtime. Original copyright and license notices are
+retained in LICENSE. Current SDK sources: https://github.com/LO-ink/lo-miniapp-sdk.

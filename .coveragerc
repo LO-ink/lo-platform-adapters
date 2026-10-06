@@ -1,0 +1,12 @@
+[run]
+branch = True
+source =
+    python/lo-aiogram/src/lo_aiogram
+    python/lo-bot-api-emulator/src/lo_bot_api_emulator
+
+[report]
+show_missing = True
+fail_under = 85
+
+[xml]
+output = coverage/python.xml

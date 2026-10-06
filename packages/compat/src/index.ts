@@ -13,12 +13,12 @@ import type {
   ThemeColors,
 } from "@lo-ink/miniapp-sdk";
 
-export type LegacyWebApp = Record<string, any> & {
+export type LegacyWebApp = Record<string, unknown> & {
   initData?: string;
   capabilities?: readonly string[];
   version?: string;
-  onEvent?: (event: string, listener: (...args: any[]) => void) => void;
-  offEvent?: (event: string, listener: (...args: any[]) => void) => void;
+  onEvent?: (event: string, listener: (...args: unknown[]) => void) => void;
+  offEvent?: (event: string, listener: (...args: unknown[]) => void) => void;
 };
 
 type Request<T> = AdapterRequest<T> | PromiseLike<T>;
@@ -27,14 +27,25 @@ const unsupported = (operation: string) =>
     new MiniAppError("unsupported", `${operation} is unavailable`),
   );
 const resolved = <T>(value: T): Promise<T> => Promise.resolve(value);
-const method = (target: any, name: string) =>
-  typeof target?.[name] === "function";
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+const method = (target: unknown, name: string) =>
+  typeof record(target)?.[name] === "function";
+function invoke(target: unknown, name: string, ...args: unknown[]): unknown {
+  const fn = record(target)?.[name];
+  if (typeof fn !== "function")
+    throw new MiniAppError("unsupported", `${name} is unavailable`);
+  return Reflect.apply(fn, target, args);
+}
 const invalid = (message: string) =>
   new MiniAppError("invalid-response", message);
 
 function callback<T>(
-  start: (done: (...values: any[]) => void) => void,
-  map: (...values: any[]) => T,
+  start: (done: (...values: unknown[]) => void) => void,
+  map: (...values: unknown[]) => T,
 ): AdapterRequest<T> {
   let active = true;
   return {
@@ -59,8 +70,10 @@ function callback<T>(
 }
 
 function storageCallback<T>(
-  start: (done: (error: unknown, value?: any, extra?: any) => void) => void,
-  map: (value: any, extra: any) => T,
+  start: (
+    done: (error: unknown, value?: unknown, extra?: unknown) => void,
+  ) => void,
+  map: (value: unknown, extra: unknown) => T,
 ): AdapterRequest<T> {
   let active = true;
   return {
@@ -175,9 +188,10 @@ export function createWebAppAdapter(
         );
       }
       let active = true;
-      const rawListener = (...args: any[]) => {
+      const rawListener = (...args: unknown[]) => {
         if (!active) return;
         const first = args[0];
+        const fields = record(first);
         let payload: unknown = first;
         if (event === "themeChanged" || event === "viewportChanged")
           payload = snapshot();
@@ -194,7 +208,8 @@ export function createWebAppAdapter(
           event === "orientationFailed"
         )
           payload = {
-            reason: typeof first?.error === "string" ? first.error : undefined,
+            reason:
+              typeof fields?.error === "string" ? fields.error : undefined,
           };
         else if (event === "accelerometerChanged")
           payload = normalizeVector(webApp.Accelerometer);
@@ -206,8 +221,8 @@ export function createWebAppAdapter(
           payload =
             typeof first === "string"
               ? { data: first }
-              : typeof first?.data === "string"
-                ? { data: first.data }
+              : typeof fields?.data === "string"
+                ? { data: fields.data }
                 : unavailable;
         if (
           payload === unavailable ||
@@ -230,16 +245,19 @@ export function createWebAppAdapter(
       input: OperationInput<K>,
       context: RequestContext,
     ): Request<OperationOutput<K>> {
-      return execute(webApp, operation, input, context) as Request<
-        OperationOutput<K>
-      >;
+      return execute(
+        webApp,
+        { operation, input } as OperationRequest,
+        context,
+      ) as Request<OperationOutput<K>>;
     },
   };
 }
 
-function normalizeInsets(value: any) {
+function normalizeInsets(input: unknown) {
+  const value = record(input);
   if (!value || typeof value !== "object") return undefined;
-  const number = (entry: any) =>
+  const number = (entry: unknown) =>
     typeof entry === "number" && Number.isFinite(entry) ? entry : 0;
   return {
     top: number(value.top),
@@ -250,7 +268,8 @@ function normalizeInsets(value: any) {
 }
 
 const unavailable = Symbol("unavailable");
-function normalizeTheme(value: any): ThemeColors | undefined {
+function normalizeTheme(input: unknown): ThemeColors | undefined {
+  const value = record(input);
   if (!value || typeof value !== "object") return undefined;
   const mappings: ReadonlyArray<readonly [string, keyof ThemeColors]> = [
     ["bg_color", "background"],
@@ -270,11 +289,13 @@ function normalizeTheme(value: any): ThemeColors | undefined {
   ];
   const result: ThemeColors = {};
   for (const [wire, semantic] of mappings) {
-    if (typeof value[wire] === "string") result[semantic] = value[wire];
+    if (typeof value[wire] === "string")
+      result[semantic] = value[wire] as string;
   }
   return result;
 }
-function normalizeVector(manager: any) {
+function normalizeVector(input: unknown) {
+  const manager = record(input);
   if (
     !manager ||
     typeof manager.x !== "number" ||
@@ -284,7 +305,8 @@ function normalizeVector(manager: any) {
     return unavailable;
   return { x: manager.x, y: manager.y, z: manager.z };
 }
-function normalizeOrientation(manager: any) {
+function normalizeOrientation(input: unknown) {
+  const manager = record(input);
   if (
     !manager ||
     typeof manager.absolute !== "boolean" ||
@@ -301,12 +323,16 @@ function normalizeOrientation(manager: any) {
   };
 }
 
+type OperationRequest = {
+  [K in MiniAppOperation]: { operation: K; input: OperationInput<K> };
+}[MiniAppOperation];
+
 function execute(
   webApp: LegacyWebApp,
-  operation: MiniAppOperation,
-  input: any,
+  request: OperationRequest,
   context: RequestContext,
-): Request<any> {
+): Request<unknown> {
+  const { operation, input } = request;
   switch (operation) {
     case "close":
       return command(webApp, "close");
@@ -344,7 +370,7 @@ function execute(
     case "setBottomBarColor":
       return command(webApp, "setBottomBarColor", input.color);
     case "setButton": {
-      const buttons: Record<string, any> = {
+      const buttons: Record<string, unknown> = {
         back: webApp.BackButton,
         main: webApp.MainButton,
         secondary: webApp.SecondaryButton,
@@ -353,57 +379,39 @@ function execute(
       const button = buttons[input.button];
       if (!button) return unsupported(operation);
       const params = input.params;
-      if (method(button, "setParams"))
-        button.setParams({
+      if (input.button === "main" || input.button === "secondary") {
+        if (!method(button, "setParams")) return unsupported(operation);
+        if (input.button === "main" && params.position !== undefined)
+          return unsupported(operation);
+        const progress = params.progressVisible;
+        const progressMethod = progress ? "showProgress" : "hideProgress";
+        if (progress !== undefined && !method(button, progressMethod))
+          return unsupported(operation);
+        if (progress !== undefined) {
+          if (progress) invoke(button, "showProgress", params.active === true);
+          else invoke(button, "hideProgress");
+        }
+        invoke(button, "setParams", {
           text: params.text,
           is_active: params.active,
           is_visible: params.visible,
-          is_progress_visible: params.progressVisible,
           color: params.color,
           text_color: params.textColor,
           has_shine_effect: params.shine,
           position: params.position,
         });
-      else {
-        const actions: Array<() => void> = [];
-        const add = (defined: boolean, name: string, action: () => void) => {
-          if (!defined) return;
-          if (!method(button, name))
-            throw new MiniAppError(
-              "unsupported",
-              `${input.button} button does not support ${name}`,
-            );
-          actions.push(action);
-        };
-        try {
-          add(params.text !== undefined, "setText", () =>
-            button.setText(params.text),
-          );
-          add(params.progressVisible === true, "showProgress", () =>
-            button.showProgress(params.active === true),
-          );
-          add(params.progressVisible === false, "hideProgress", () =>
-            button.hideProgress(),
-          );
-          add(params.active === true, "enable", () => button.enable());
-          add(params.active === false, "disable", () => button.disable());
-          add(params.visible === true, "show", () => button.show());
-          add(params.visible === false, "hide", () => button.hide());
-          if (
-            params.color !== undefined ||
-            params.textColor !== undefined ||
-            params.shine !== undefined ||
-            params.position !== undefined
-          ) {
-            throw new MiniAppError(
-              "unsupported",
-              `${input.button} button requires setParams for styling`,
-            );
-          }
-        } catch (error) {
-          return Promise.reject(error);
+      } else {
+        if (
+          Object.entries(params).some(
+            ([key, value]) => key !== "visible" && value !== undefined,
+          )
+        )
+          return unsupported(operation);
+        if (params.visible !== undefined) {
+          const name = params.visible ? "show" : "hide";
+          if (!method(button, name)) return unsupported(operation);
+          invoke(button, name);
         }
-        for (const action of actions) action();
       }
       return resolved(undefined);
     }
@@ -411,24 +419,26 @@ function execute(
       if (input.kind === "selection") {
         if (!method(webApp.HapticFeedback, "selectionChanged"))
           return unsupported(operation);
-        webApp.HapticFeedback.selectionChanged();
+        invoke(webApp.HapticFeedback, "selectionChanged");
         return resolved(undefined);
       }
       const notification = ["success", "warning", "error"].includes(input.kind);
       const name = notification ? "notificationOccurred" : "impactOccurred";
       if (!method(webApp.HapticFeedback, name)) return unsupported(operation);
-      webApp.HapticFeedback[name](input.kind);
+      invoke(webApp.HapticFeedback, name, input.kind);
       return resolved(undefined);
     }
     case "showPopup":
       if (!method(webApp, "showPopup")) return unsupported(operation);
       return callback(
         (done) =>
-          webApp.showPopup(
+          invoke(
+            webApp,
+            "showPopup",
             {
               title: input.title,
               message: input.message,
-              buttons: input.buttons?.map((button: any) => ({
+              buttons: input.buttons?.map((button) => ({
                 id: button.id,
                 text: button.text,
                 type: button.kind,
@@ -451,31 +461,30 @@ function execute(
       if (!method(webApp, "readTextFromClipboard"))
         return unsupported(operation);
       return callback(
-        (done) => webApp.readTextFromClipboard(done),
+        (done) => invoke(webApp, "readTextFromClipboard", done),
         (text) => (typeof text === "string" ? text : null),
       );
     case "getLocation": {
-      const manager = webApp.LocationManager;
+      const manager = record(webApp.LocationManager);
       if (!method(manager, "getLocation")) return unsupported(operation);
       return callback((done) => {
         const get = () => {
-          if (!context.signal?.aborted) manager.getLocation(done);
+          if (!context.signal?.aborted) invoke(manager, "getLocation", done);
         };
-        manager.isInited || !method(manager, "init")
-          ? get()
-          : manager.init(get);
+        if (manager?.isInited || !method(manager, "init")) get();
+        else invoke(manager, "init", get);
       }, normalizeLocation);
     }
     case "openLocationSettings":
       return command(webApp.LocationManager, "openSettings");
     case "getBiometryInfo": {
-      const manager = webApp.BiometricManager;
+      const manager = record(webApp.BiometricManager);
       if (!manager) return unsupported(operation);
       return callback(
         (done) =>
-          manager.isInited || !method(manager, "init")
+          manager?.isInited || !method(manager, "init")
             ? done()
-            : manager.init(done),
+            : invoke(manager, "init", done),
         () => ({
           available: manager.isBiometricAvailable === true,
           type:
@@ -496,10 +505,11 @@ function execute(
         reason: input.reason,
       });
     case "authenticateBiometry": {
-      const manager = webApp.BiometricManager;
+      const manager = record(webApp.BiometricManager);
       if (!method(manager, "authenticate")) return unsupported(operation);
       return callback(
-        (done) => manager.authenticate({ reason: input.reason }, done),
+        (done) =>
+          invoke(manager, "authenticate", { reason: input.reason }, done),
         (authenticated, token) => ({
           authenticated: authenticated === true,
           ...(typeof token === "string" ? { token } : {}),
@@ -542,7 +552,9 @@ function execute(
       if (!method(webApp, "downloadFile")) return unsupported(operation);
       return callback(
         (done) =>
-          webApp.downloadFile(
+          invoke(
+            webApp,
+            "downloadFile",
             { url: input.url, file_name: input.fileName },
             done,
           ),
@@ -575,7 +587,7 @@ function execute(
     case "openInvoice":
       if (!method(webApp, "openInvoice")) return unsupported(operation);
       return callback(
-        (done) => webApp.openInvoice(input.url, done),
+        (done) => invoke(webApp, "openInvoice", input.url, done),
         (status) => {
           if (
             status !== "paid" &&
@@ -664,7 +676,7 @@ function execute(
       if (!method(webApp.SecureStorage, "getItem"))
         return unsupported(operation);
       return storageCallback(
-        (done) => webApp.SecureStorage.getItem(input.key, done),
+        (done) => invoke(webApp.SecureStorage, "getItem", input.key, done),
         (value, canRestore) => ({
           value: strictOptionalString(value),
           canRestore:
@@ -697,35 +709,39 @@ function execute(
   }
 }
 
-function command(target: any, name: string, ...args: any[]): Promise<any> {
+function command(
+  target: unknown,
+  name: string,
+  ...args: unknown[]
+): Promise<void> {
   if (!method(target, name)) return unsupported(name);
-  target[name](...args);
+  invoke(target, name, ...args);
   return resolved(undefined);
 }
-function booleanCallback(target: any, name: string, ...args: any[]) {
+function booleanCallback(target: unknown, name: string, ...args: unknown[]) {
   if (!method(target, name)) return unsupported(name);
-  return callback((done) => target[name](...args, done), strictBoolean);
+  return callback((done) => invoke(target, name, ...args, done), strictBoolean);
 }
 const sensorOwners = new WeakMap<object, symbol>();
 
 function sensorStart(
-  target: any,
-  params: any,
+  target: unknown,
+  params: unknown,
   context: RequestContext,
 ): Request<boolean> {
   if (!method(target, "start") || !method(target, "stop"))
     return unsupported("sensor start");
   // A caller must not acquire or later stop a sensor already owned elsewhere.
-  if (target.isStarted === true) return resolved(false);
+  if (record(target)?.isStarted === true) return resolved(false);
   const owner = Symbol();
-  sensorOwners.set(target, owner);
+  sensorOwners.set(target as object, owner);
   let completed = false;
   let cancelled = false;
   let released = false;
   const stopOwned = () => {
-    if (sensorOwners.get(target) !== owner) return;
+    if (sensorOwners.get(target as object) !== owner) return;
     try {
-      target.stop();
+      invoke(target, "stop");
     } catch {
       /* Cleanup must not replace the request result. */
     }
@@ -733,7 +749,7 @@ function sensorStart(
   return {
     promise: new Promise<boolean>((resolve, reject) => {
       try {
-        target.start(params, (value: unknown) => {
+        invoke(target, "start", params, (value: unknown) => {
           if (cancelled) {
             if (value === true) stopOwned();
             return;
@@ -762,29 +778,33 @@ function sensorStart(
   };
 }
 
-function managerBoolean(target: any, name: string, params?: any) {
+function managerBoolean(target: unknown, name: string, params?: unknown) {
   if (!method(target, name)) return unsupported(name);
   return callback(
     (done) =>
-      params === undefined ? target[name](done) : target[name](params, done),
+      params === undefined
+        ? invoke(target, name, done)
+        : invoke(target, name, params, done),
     strictBoolean,
   );
 }
-function storage(
-  target: any,
+function storage<T>(
+  target: unknown,
   name: string,
-  args: any[],
-  map: (value: any) => any,
+  args: unknown[],
+  map: (value: unknown) => T,
 ) {
   if (!method(target, name)) return unsupported(name);
   return storageCallback(
-    (done) => target[name](...args, done),
+    (done) => invoke(target, name, ...args, done),
     (value) => map(value),
   );
 }
-function normalizeLocation(value: any) {
+function normalizeLocation(input: unknown) {
+  const value = record(input);
   if (!value || typeof value !== "object") return null;
-  const nullable = (entry: any) => (typeof entry === "number" ? entry : null);
+  const nullable = (entry: unknown) =>
+    typeof entry === "number" ? entry : null;
   if (typeof value.latitude !== "number" || typeof value.longitude !== "number")
     return null;
   return {
@@ -800,15 +820,15 @@ function normalizeLocation(value: any) {
   };
 }
 
-function strictBoolean(value: any): boolean {
+function strictBoolean(value: unknown): boolean {
   if (typeof value !== "boolean") throw invalid("Expected a boolean response");
   return value;
 }
-function strictOptionalString(value: any): string | null {
+function strictOptionalString(value: unknown): string | null {
   if (typeof value === "string" || value === null) return value;
   throw invalid("Expected a string or null response");
 }
-function strictStringArray(value: any): string[] {
+function strictStringArray(value: unknown): string[] {
   if (
     !Array.isArray(value) ||
     value.some((entry) => typeof entry !== "string")
@@ -817,16 +837,17 @@ function strictStringArray(value: any): string[] {
   }
   return [...value];
 }
-function strictStringRecord(value: any): Record<string, string> {
+function strictStringRecord(value: unknown): Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw invalid("Expected a string record response");
   }
   const result: Record<string, string> = {};
   for (const key of Object.keys(value)) {
-    if (typeof value[key] !== "string")
+    const entry = (value as Record<string, unknown>)[key];
+    if (typeof entry !== "string")
       throw invalid("Expected string record values");
     Object.defineProperty(result, key, {
-      value: value[key],
+      value: entry,
       enumerable: true,
       configurable: true,
       writable: true,

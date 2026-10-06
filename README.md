@@ -6,8 +6,8 @@ globals, external scripts, version gates and foreign wire shapes never belong in
 
 | Package                              | Direction and responsibility                                          |
 | ------------------------------------ | --------------------------------------------------------------------- |
-| `@lo-ink/adapter-lo` 0.23.1          | Native LO SDK → native LO protocol; no compatibility dependency       |
-| `@lo-ink/adapter-lo-legacy` 0.1.2    | Explicit older LO host support; preserves 0.21 composition semantics  |
+| `@lo-ink/adapter-lo`                 | Native LO SDK → native LO protocol; no compatibility dependency       |
+| `@lo-ink/adapter-lo-legacy`          | Explicit LO WebApp host support; no native composition                |
 | `@lo-ink/adapter-telegram`           | LO SDK → Telegram host, with an explicit bounded script loader        |
 | `@lo-ink/adapter-telegram-to-lo` 0.1 | Existing Telegram WebApp code → LO-provided compatibility surface     |
 | `@lo-ink/adapter-webapp-compat`      | Shared translation implementation used only by compatibility adapters |
@@ -35,9 +35,7 @@ Packed-package tests install the native SDK and LO adapter **alone**, proving
 that the native application needs no compatibility package. A second consumer
 checks all adapters through their public exports and TypeScript declarations.
 
-[`docs/migration.md`](docs/migration.md) describes upgrade directions and the
-prepared release order. [`docs/0.18.0-inventory.md`](docs/0.18.0-inventory.md)
-retains the historical migration inventory.
+[Choosing an integration](docs/migration.md) describes explicit provider selection.
 
 The bot migration suites use actual pinned Telegraf/grammY and aiogram clients
 against a loopback HTTP recorder. They verify request contracts, not every
@@ -52,6 +50,23 @@ Bot HTTP transport 0.4 uses native LO keyboard values from bot-sdk 0.4 and suppo
 
 Compatibility guides live here: [bot migration](docs/telegram-bots.md), [mini-app migration](docs/telegram-miniapps.md), and [API mapping](docs/lo-vs-telegram.md).
 
-Python integrations: [lo-aiogram](python/lo-aiogram/README.md) and the [LO Bot API emulator](python/lo-bot-api-emulator/README.md). Actual aiogram handlers and pinned Telegraf/grammY clients run against the generated strict contract; removing compatibility middleware must fail. Unmodeled methods return 501. The fixture does not validate real media content or reproduce authentication, storage, transcoding and production permissions.
+Python integrations: [lo-aiogram](python/lo-aiogram/README.md) and the [LO Bot API emulator](python/lo-bot-api-emulator/README.md). Actual aiogram handlers and pinned Telegraf/grammY clients run against the generated strict contract; unsupported requests must fail explicitly. Unmodeled methods return 501. The fixture does not validate real media content or reproduce authentication, storage, transcoding and production permissions.
 
 The [contract](contracts/lo-bot-api.json) records verified source provenance from [LO/messenger 285b2f31](https://git.lo.ink/LO/messenger/commit/285b2f31f809c55f22ad2cb74f6c4e035daa9926). Unsaved server changes require explicit `--allow-working-tree` and remain labeled unreleased. The server owns generation and its standard Go test checks source drift.
+
+## Quality checks
+
+Run `make install` and `make ci` with Node.js 22.13 or newer. The same targets run
+in GitHub Actions. CI checks formatting, ESLint (including typed promises),
+TypeScript, dependency cycles and package boundaries, tests, published package
+contents, vulnerable dependencies and secrets. English documentation and comments
+are enforced; unfinished development notes and retired repository URLs fail CI.
+
+Coverage includes unimported production files and fails below 85% lines and
+statements, 90% functions, or 75% branches. Reports are uploaded as CI artifacts.
+
+Use `make python-install python-ci` for Ruff, mypy, Python tests with at least 85%
+branch-inclusive coverage, distribution checks and pip-audit. `make bot-frameworks
+strict-contract` verifies Telegraf and grammY against the explicit LO contract;
+`make emulator-container` verifies the packaged emulator image. Use `PYTHON` to
+select an installed Python 3.11+ interpreter.
