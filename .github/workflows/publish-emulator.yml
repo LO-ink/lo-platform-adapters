@@ -11,6 +11,10 @@ jobs:
   publish:
     if: github.ref == 'refs/heads/main' && github.repository == 'LO-ink/lo-platform-adapters'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      packages: write
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -22,6 +26,11 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
+      - name: Require exact-revision Adapter checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: make release-check
       - name: Check source consumers and distributions
         run: |
           python -m pip install build twine ./python/lo-aiogram ./python/lo-bot-api-emulator

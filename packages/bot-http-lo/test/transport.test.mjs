@@ -436,3 +436,47 @@ test("redirect body cleanup cannot expose transport details", async () => {
     },
   );
 });
+
+test("edit responses must identify the requested message and conversation", async (t) => {
+  for (const [messageId, chatId] of [
+    [999, 7],
+    [42, 8],
+    [42, 7],
+  ]) {
+    await t.test(`${messageId}/${chatId}`, async (t) => {
+      let calls = 0;
+      const fixture = await server((_request, response) => {
+        calls++;
+        reply(
+          response,
+          200,
+          JSON.stringify({
+            ok: true,
+            result: {
+              message_id: messageId,
+              date: 1,
+              chat: { id: chatId, type: "private" },
+              text: "changed",
+            },
+          }),
+        );
+      });
+      t.after(fixture.close);
+      const request = createBotClient(transport(fixture.url)).editMessage({
+        conversationId: "7",
+        messageId: "42",
+        text: "changed",
+      });
+      if (messageId === 42 && chatId === 7) {
+        assert.equal((await request).id, "42");
+      } else {
+        await assert.rejects(
+          request,
+          (error) =>
+            error instanceof HttpBotError && error.code === "invalid-response",
+        );
+      }
+      assert.equal(calls, 1);
+    });
+  }
+});

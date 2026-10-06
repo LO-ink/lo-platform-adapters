@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { commentsIn } from "./comment-reader.mjs";
 
 const files = execFileSync(
   "git",
@@ -28,13 +29,11 @@ for (const file of new Set(files)) {
     /[А-Яа-яЁё]/u.test(value)
   )
     failures.push(`${file}: documentation must be in English`);
-  if (/\.(py|go)$/.test(file)) {
-    for (const [index, line] of value.split("\n").entries()) {
-      if (/^\s*(#|\/\/)/.test(line) && /[А-Яа-яЁё]/u.test(line))
-        failures.push(`${file}:${index + 1}: comments must be in English`);
-      if (/^\s*(#|\/\/).*(TODO|FIXME|HACK|XXX)\b/.test(line))
-        failures.push(`${file}:${index + 1}: unfinished development note`);
-    }
+  for (const [line, comment] of commentsIn(file, value)) {
+    if (/[А-Яа-яЁё]/u.test(comment))
+      failures.push(`${file}:${line}: comments must be in English`);
+    if (/\b(TODO|FIXME|HACK|XXX)\b/.test(comment))
+      failures.push(`${file}:${line}: unfinished development note`);
   }
 }
 if (process.env.GITHUB_EVENT_PATH) {

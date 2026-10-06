@@ -35,37 +35,42 @@ secrets:
 	$(NPM) run secrets
 
 PYTHON ?= python3
+PYTHON_COMMAND := $(if $(findstring /,$(PYTHON)),$(abspath $(PYTHON)),$(PYTHON))
 .PHONY: python-install python-ci python-format python-lint python-test python-package bot-frameworks strict-contract emulator-container
 python-install:
-	$(PYTHON) -m pip install -r requirements-quality.txt -r compatibility/aiogram/requirements.txt -e ./python/lo-aiogram -e ./python/lo-bot-api-emulator
+	$(PYTHON_COMMAND) -m pip install -r requirements-quality.txt -r compatibility/aiogram/requirements.txt -e ./python/lo-aiogram -e ./python/lo-bot-api-emulator
 python-ci: python-format python-lint python-test python-package python-security
 python-format:
-	$(PYTHON) -m ruff format --check python scripts/*.py compatibility/aiogram
+	$(PYTHON_COMMAND) -m ruff format --check python scripts/*.py compatibility/aiogram
 python-lint:
-	$(PYTHON) -m ruff check python scripts/*.py compatibility/aiogram
-	$(PYTHON) -m mypy python/lo-aiogram/src python/lo-bot-api-emulator/src
+	$(PYTHON_COMMAND) -m ruff check python scripts/*.py compatibility/aiogram
+	$(PYTHON_COMMAND) -m mypy python/lo-aiogram/src python/lo-bot-api-emulator/src
 python-test:
-	$(PYTHON) -m coverage run -m unittest discover -s python/tests -v
-	$(PYTHON) -m coverage report
-	$(PYTHON) -m coverage xml
-	cd compatibility/aiogram && $(PYTHON) -m unittest discover -v
+	$(PYTHON_COMMAND) -m coverage run -m unittest discover -s python/tests -v
+	$(PYTHON_COMMAND) -m coverage report
+	$(PYTHON_COMMAND) -m coverage xml
+	cd compatibility/aiogram && $(PYTHON_COMMAND) -m unittest discover -v
 python-package:
 	rm -rf python/lo-aiogram/dist python/lo-bot-api-emulator/dist
-	$(PYTHON) -m build python/lo-aiogram
-	$(PYTHON) -m build python/lo-bot-api-emulator
-	$(PYTHON) -m twine check python/lo-aiogram/dist/* python/lo-bot-api-emulator/dist/*
-	$(PYTHON) scripts/check-python-packages.py
+	$(PYTHON_COMMAND) -m build python/lo-aiogram
+	$(PYTHON_COMMAND) -m build python/lo-bot-api-emulator
+	$(PYTHON_COMMAND) -m twine check python/lo-aiogram/dist/* python/lo-bot-api-emulator/dist/*
+	$(PYTHON_COMMAND) scripts/check-python-packages.py
 bot-frameworks:
 	$(NPM) ci --ignore-scripts --prefix compatibility/bot-frameworks
 	$(NPM) test --prefix compatibility/bot-frameworks
 	$(NPM) audit --audit-level=high --prefix compatibility/bot-frameworks
 strict-contract:
-	LO_STRICT_PYTHON=$(PYTHON) $(NPM) run test:strict --prefix compatibility/bot-frameworks
+	LO_STRICT_PYTHON=$(PYTHON_COMMAND) $(NPM) run test:strict --prefix compatibility/bot-frameworks
 emulator-container:
 	docker build -t lo-bot-api-emulator:ci python/lo-bot-api-emulator
-	$(PYTHON) scripts/check-emulator-container.py lo-bot-api-emulator:ci
+	$(PYTHON_COMMAND) scripts/check-emulator-container.py lo-bot-api-emulator:ci
 
 aiogram:
-	cd compatibility/aiogram && $(PYTHON) -m unittest discover -v
+	cd compatibility/aiogram && $(PYTHON_COMMAND) -m unittest discover -v
 python-security:
-	$(PYTHON) -m pip_audit --disable-pip --no-deps -r compatibility/aiogram/requirements.txt
+	$(PYTHON_COMMAND) -m pip_audit --disable-pip --no-deps -r compatibility/aiogram/requirements.txt
+
+.PHONY: release-check
+release-check:
+	node scripts/check-release-ci.mjs

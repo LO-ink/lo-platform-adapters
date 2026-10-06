@@ -571,13 +571,12 @@ function normalizeResult<K extends keyof BotOperations>(
         true,
       );
       break;
-    case "editMessage":
-      result = message(
-        value,
-        (input as BotOperations["editMessage"]["input"]).conversationId,
-        true,
-      );
+    case "editMessage": {
+      const edit = input as BotOperations["editMessage"]["input"];
+      result = message(value, edit.conversationId, true);
+      if (result.id !== edit.messageId) throw invalidResult();
       break;
+    }
     case "sendPhoto":
     case "sendDocument":
     case "sendVoice":
