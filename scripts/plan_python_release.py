@@ -109,17 +109,21 @@ def verify_upload(root, project, directory, request=urlopen):
     return True
 
 
+def wait_for_upload(root, project, directory, request=urlopen, wait=time.sleep):
+    for attempt in range(30):
+        if verify_upload(root, project, directory, request):
+            return
+        if attempt < 29:
+            wait(10)
+    raise RuntimeError("Published distributions are not visible in PyPI")
+
+
 if __name__ == "__main__":
     root = Path(__file__).resolve().parents[1]
     if len(sys.argv) == 4 and sys.argv[1] == "--prepare-upload":
         values = {"has_uploads": str(prepare_upload(root, sys.argv[2], Path(sys.argv[3]))).lower()}
     elif len(sys.argv) == 4 and sys.argv[1] == "--verify-upload":
-        for _attempt in range(10):
-            if verify_upload(root, sys.argv[2], Path(sys.argv[3])):
-                break
-            time.sleep(3)
-        else:
-            raise RuntimeError("Published distributions are not visible in PyPI")
+        wait_for_upload(root, sys.argv[2], Path(sys.argv[3]))
         values = {"public_integrity": "verified"}
     elif len(sys.argv) == 1:
         matrix = release_matrix(root)

@@ -191,3 +191,42 @@ class PythonReleasePlan(unittest.TestCase):
                     )
                 ),
             )
+
+    def test_verification_waits_for_complete_public_files_after_processing(self):
+        directory, _, complete = self.upload_fixture(existing_count=2)
+        requests = 0
+        delays = []
+
+        def request(url, **kwargs):
+            nonlocal requests
+            requests += 1
+            if requests <= 4:
+                raise HTTPError(url, 404, "processing", {}, None)
+            return complete(url, **kwargs)
+
+        plan.wait_for_upload(self.root, "lo-aiogram", directory, request, delays.append)
+        self.assertEqual(requests, 5)
+        self.assertEqual(sum(delays), 40)
+
+    def test_verification_timeout_fails_without_claiming_a_release(self):
+        directory, _, _ = self.upload_fixture()
+        delays = []
+
+        def request(url, **kwargs):
+            raise HTTPError(url, 404, "processing", {}, None)
+
+        with self.assertRaisesRegex(RuntimeError, "not visible"):
+            plan.wait_for_upload(self.root, "lo-aiogram", directory, request, delays.append)
+        self.assertTrue(delays)
+        self.assertLessEqual(sum(delays), 300)
+
+    def test_verification_rejects_changed_public_bytes_immediately(self):
+        directory, _, request = self.upload_fixture(existing_count=2, different=True)
+        with self.assertRaisesRegex(ValueError, "bytes differ"):
+            plan.wait_for_upload(
+                self.root,
+                "lo-aiogram",
+                directory,
+                request,
+                lambda _: self.fail("Cannot wait past an integrity mismatch"),
+            )
