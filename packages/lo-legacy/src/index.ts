@@ -30,6 +30,7 @@ export function createAdapter(
     "lo-legacy-webapp",
     webApp,
     webAppCapabilities(webApp),
+    { contentSafeAreaIncludesSystem: true },
   );
 }
 

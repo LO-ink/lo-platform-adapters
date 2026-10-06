@@ -7,7 +7,10 @@ import type {
 import { createWebAppAdapter } from "@lo-ink/adapter-webapp-compat";
 import type { LegacyWebApp } from "@lo-ink/adapter-webapp-compat";
 
-export type TelegramGlobal = { Telegram?: { WebApp?: LegacyWebApp } };
+export type TelegramGlobal = {
+  Telegram?: { WebApp?: LegacyWebApp };
+  LO?: { WebApp?: LegacyWebApp };
+};
 export type TelegramDocument = Pick<Document, "createElement" | "head">;
 const MAX_TIMEOUT_MS = 2_147_483_647;
 
@@ -129,7 +132,9 @@ export function createAdapter(
       capabilities.add(capability);
     }
   }
-  const base = createWebAppAdapter("telegram", webApp, capabilities);
+  const base = createWebAppAdapter("telegram", webApp, capabilities, {
+    contentSafeAreaIncludesSystem: scope.LO?.WebApp === webApp,
+  });
   const requireVersion = (minimum: string, name: string) => {
     if (
       !isVersionAtLeast(webApp.version, minimum) ||
