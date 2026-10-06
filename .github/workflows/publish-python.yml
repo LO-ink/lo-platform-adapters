@@ -1,17 +1,43 @@
 name: Publish Python packages
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Adapter checks"]
+    types: [completed]
+    branches: [main]
 permissions:
   contents: read
 concurrency:
   group: publish-python
   cancel-in-progress: false
 jobs:
+  plan:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.releases.outputs.matrix }}
+      has_releases: ${{ steps.releases.outputs.has_releases }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - id: releases
+        run: python scripts/plan_python_release.py
   build:
-    if: github.ref == 'refs/heads/main'
+    needs: plan
+    if: needs.plan.outputs.has_releases == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -45,23 +71,36 @@ jobs:
           path: dist/lo_bot_api_emulator-*
           if-no-files-found: error
   publish:
-    needs: build
+    needs: [plan, build]
+    if: needs.plan.outputs.has_releases == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - artifact: python-lo-aiogram
-            environment: pypi
-          - artifact: python-lo-bot-api-emulator
-            environment: pypi-emulator
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     environment: ${{ matrix.environment }}
     permissions:
       id-token: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ${{ matrix.artifact }}
           path: dist
+      - id: uploads
+        env:
+          RELEASE_PROJECT: ${{ matrix.project }}
+        run: python scripts/plan_python_release.py --prepare-upload "$RELEASE_PROJECT" dist
       - name: Publish verified distributions
+        if: steps.uploads.outputs.has_uploads == 'true'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: upload-dist
+      - name: Verify public distribution hashes
+        env:
+          RELEASE_PROJECT: ${{ matrix.project }}
+        run: python scripts/plan_python_release.py --verify-upload "$RELEASE_PROJECT" dist

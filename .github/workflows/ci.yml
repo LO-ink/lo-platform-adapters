@@ -1,5 +1,5 @@
 name: Adapter checks
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
@@ -78,3 +78,19 @@ jobs:
         if: matrix.python == '3.13'
       - run: python scripts/check-emulator-container.py lo-bot-api-emulator:ci
         if: matrix.python == '3.13'
+  publish-npm:
+    needs: [test, bot-frameworks, aiogram, strict-bot-contract]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm
+    concurrency:
+      group: npm-release
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: LO-ink/lo-developer-tools/actions/publish-npm@1c8eed7bca3e8980a3377fe8ff8a6154855c9ac0
+        with:
+          package-paths: '["packages/compat","packages/bot-http-lo","packages/telegram-to-lo","packages/vk","packages/telegram","packages/lo","packages/lo-legacy"]'
