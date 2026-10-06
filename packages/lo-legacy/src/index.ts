@@ -4,7 +4,7 @@ import {
   webAppCapabilities,
 } from "@lo-ink/adapter-webapp-compat";
 import type { LegacyWebApp } from "@lo-ink/adapter-webapp-compat";
-import type { LoMiniAppNativePort } from "@lo-ink/adapter-lo";
+import type { LoMiniAppNativePort } from "@lo-ink/miniapp-sdk";
 
 export {
   createNativeAdapter,
@@ -12,7 +12,7 @@ export {
   type LoNativeAdapter,
   type LoNativeGlobal,
   type LoNativeOperation,
-} from "@lo-ink/adapter-lo";
+} from "@lo-ink/miniapp-sdk";
 
 export type LoLegacyGlobal = { LO?: { WebApp?: LegacyWebApp } };
 export type LoGlobal = {

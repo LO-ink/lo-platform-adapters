@@ -1,5 +1,9 @@
 # `@lo-ink/bot-http-lo`
 
+Version 0.6 re-exports the native HTTP implementation from `@lo-ink/bot-sdk` 0.5.
+New LO applications install only the SDK and use `createLoBotClient(options)`.
+Existing transport, webhook decoder and error imports remain aliases of the SDK.
+
 Server-side HTTP transport for `@lo-ink/bot-sdk` and the LO Bot API.
 
 ```ts

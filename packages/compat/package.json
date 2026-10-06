@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-webapp-compat",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "description": "Shared implementation detail for LO WebApp compatibility adapters",
   "type": "module",
   "license": "MIT",
@@ -25,7 +25,7 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "@lo-ink/miniapp-sdk": "^0.19.2 || ^0.20.0 || ^0.21.0"
+    "@lo-ink/miniapp-sdk": "^0.19.2 || ^0.20.0 || ^0.21.0 || ^0.22.0"
   },
   "engines": {
     "node": ">=20"

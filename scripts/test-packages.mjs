@@ -30,7 +30,7 @@ const packages = [
   "vk",
 ];
 try {
-  const archives = ["@lo-ink/miniapp-sdk@0.20.3", "@lo-ink/bot-sdk@0.4.2"];
+  const archives = ["@lo-ink/miniapp-sdk@0.22.0", "@lo-ink/bot-sdk@0.5.0"];
   for (const folder of packages) {
     const manifest = JSON.parse(
       readFileSync(join(root, "packages", folder, "package.json")),

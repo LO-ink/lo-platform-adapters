@@ -51,4 +51,4 @@ claim of complete Telegram parity or production host acceptance.
 
 For gradual migration, replace application calls with the typed LO SDK and
 remove this bridge when no foreign API calls remain. New applications should
-start directly with `@lo-ink/miniapp-sdk` and `@lo-ink/adapter-lo`.
+start directly with `@lo-ink/miniapp-sdk`.

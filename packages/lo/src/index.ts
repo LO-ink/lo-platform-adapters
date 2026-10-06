@@ -1,4 +1,4 @@
-/** Native LO integration. Compatibility is installed through separate packages. */
+/** Compatibility exports for the native transport owned by Mini App SDK. */
 export {
   createNativeAdapter,
   createNativeAdapter as createAdapter,
@@ -8,4 +8,4 @@ export {
   type LoNativeGlobal,
   type LoNativeGlobal as LoGlobal,
   type LoNativeOperation,
-} from "./native.js";
+} from "@lo-ink/miniapp-sdk";

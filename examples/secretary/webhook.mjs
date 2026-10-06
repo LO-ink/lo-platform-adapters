@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { timingSafeEqual } from "node:crypto";
-import { parseLoBotWebhookUpdate } from "../../packages/bot-http-lo/dist/index.js";
+import { parseLoBotWebhookUpdate } from "@lo-ink/bot-sdk";
 
 /** Authenticate before decoding; bound concurrent requests and acknowledge durable work. */
 export function createSecretaryWebhookServer({ secret, processUpdate }) {

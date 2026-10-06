@@ -3,7 +3,7 @@ import {
   createMiniAppClient,
   requestWriteAccess,
 } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "@lo-ink/adapter-lo";
+import { createNativeAdapter as createLoAdapter } from "@lo-ink/miniapp-sdk";
 
 const adapter = createLoAdapter();
 if (!adapter) throw new Error("Open this Mini App inside LO");

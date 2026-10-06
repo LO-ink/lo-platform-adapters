@@ -3,7 +3,7 @@ import {
   createMiniAppClient,
   requestWriteAccess,
 } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "@lo-ink/adapter-lo";
+import { createNativeAdapter as createLoAdapter } from "@lo-ink/miniapp-sdk";
 import { createAdapter as createLegacyLoAdapter } from "@lo-ink/adapter-lo-legacy";
 import { loadAdapter as loadTelegramAdapter } from "@lo-ink/adapter-telegram";
 

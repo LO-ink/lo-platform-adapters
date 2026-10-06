@@ -1,7 +1,7 @@
 # `@lo-ink/adapter-lo-legacy`
 
 Opt-in integration for applications that still need the older `LO.WebApp`
-surface. New native applications use `@lo-ink/adapter-lo` directly.
+surface. New native applications use `createLoClient` from `@lo-ink/miniapp-sdk`.
 
 ```ts
 import { createAdapter } from "@lo-ink/adapter-lo-legacy";
@@ -12,7 +12,7 @@ const client = adapter ? createMiniAppClient(adapter) : null;
 ```
 
 This adapter selects only LO.WebApp. It never discovers or composes a native
-port. Select @lo-ink/adapter-lo explicitly for native operations. Capabilities,
+port. Select createLoClient from @lo-ink/miniapp-sdk explicitly for native operations. Capabilities,
 events and snapshots always belong to the selected transport.
 
 The adapter keeps the `lo-legacy-webapp` identity. Your backend must

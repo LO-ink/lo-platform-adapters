@@ -6,13 +6,13 @@ globals, external scripts, version gates and foreign wire shapes never belong in
 
 | Package                              | Direction and responsibility                                          |
 | ------------------------------------ | --------------------------------------------------------------------- |
-| `@lo-ink/adapter-lo`                 | Native LO SDK → native LO protocol; no compatibility dependency       |
+| `@lo-ink/adapter-lo`                 | Compatibility re-export of native Mini App SDK transport              |
 | `@lo-ink/adapter-lo-legacy`          | Explicit LO WebApp host support; no native composition                |
 | `@lo-ink/adapter-telegram`           | LO SDK → Telegram host, with an explicit bounded script loader        |
 | `@lo-ink/adapter-telegram-to-lo` 0.1 | Existing Telegram WebApp code → LO-provided compatibility surface     |
 | `@lo-ink/adapter-webapp-compat`      | Shared translation implementation used only by compatibility adapters |
 | `@lo-ink/adapter-vk`                 | LO SDK → official VK Bridge; limited documented capabilities          |
-| `@lo-ink/bot-http-lo`                | Server HTTP transport for the native LO Bot SDK                       |
+| `@lo-ink/bot-http-lo`                | Compatibility re-export of native Bot SDK HTTP transport              |
 
 Each adapter reports actual host capabilities. Unsupported operations reject;
 no native failure is replayed through a different transport. Browser discovery
@@ -46,7 +46,7 @@ requires `data-miniapp-host="lo-native"`, `"lo-legacy"` or `"telegram"` on its
 entry document. It loads the external host script only for the explicit Telegram
 entrypoint; missing native support inside LO never selects another provider.
 
-Bot HTTP transport 0.4 uses native LO keyboard values from bot-sdk 0.4 and supports video, cached audio, homogeneous photo/document albums, metadata/download streams and typed callback/app-data updates. Installation capabilities are optional on older servers. See [the transport API](packages/bot-http-lo/README.md).
+Bot HTTP compatibility transport 0.6 re-exports the implementation from bot-sdk 0.5 and supports video, cached audio, homogeneous photo/document albums, metadata/download streams and typed callback/app-data updates. Installation capabilities are optional on older servers. See [the transport API](packages/bot-http-lo/README.md).
 
 Compatibility guides live here: [bot migration](docs/telegram-bots.md), [mini-app migration](docs/telegram-miniapps.md), and [API mapping](docs/lo-vs-telegram.md).
 
