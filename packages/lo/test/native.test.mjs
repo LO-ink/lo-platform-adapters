@@ -288,7 +288,7 @@ test("partial button hosts advertise and enforce each button capability", async 
   assert.equal(host.messages.length, 1);
 });
 
-test("hybrid partial button hosts route each button to its capable transport", async () => {
+test("explicit WebApp selection never fills missing buttons from native transport", async () => {
   const host = nativePort({
     operations: ["setButton"],
     capabilities: ["backButton"],
@@ -317,13 +317,11 @@ test("hybrid partial button hosts route each button to its capable transport", a
   assert.equal(host.messages.length, 0);
   assert.equal(legacyCalls[0].text, "Legacy main");
 
-  const back = client.call("setButton", {
-    button: "back",
-    params: { visible: true },
-  });
-  result(host, host.messages.at(-1), { ok: true, value: null });
-  await back;
-  assert.equal(host.messages.length, 1);
+  await assert.rejects(
+    client.call("setButton", { button: "back", params: { visible: true } }),
+    { code: "unsupported" },
+  );
+  assert.equal(host.messages.length, 0);
 });
 
 test("modern canonical-only host operates without a legacy WebApp global", async () => {
@@ -476,106 +474,38 @@ test("write-access results are strict booleans and host errors are mapped", asyn
   await assert.rejects(invalidError, { code: "invalid-response" });
 });
 
-test("matching legacy sessions compose fallback operations and live appearance", async () => {
-  const host = nativePort({
-    operations: ["ready", "openLink"],
-    capabilities: ["ready", "openLink"],
-    snapshot: () => ({ colorScheme: "dark", theme: { background: "#000000" } }),
-  });
-  const legacyListeners = new Map();
-  let legacyReady = 0;
-  let legacyExpand = 0;
-  const legacy = {
-    initData: "signed-launch",
-    capabilities: ["ready", "expand", "openLink"],
-    colorScheme: "light",
-    themeParams: { bg_color: "#ffffff" },
-    ready() {
-      legacyReady += 1;
-    },
-    expand() {
-      legacyExpand += 1;
-    },
-    openLink() {
-      throw new Error("native operations must not fall back after selection");
-    },
-    onEvent(name, listener) {
-      legacyListeners.set(name, listener);
-    },
-    offEvent(name) {
-      legacyListeners.delete(name);
-    },
-  };
+test("legacy selection never inspects a native port or merges capabilities", async () => {
+  let expanded = 0;
   const adapter = createLegacyAdapter({
-    LO: { MiniAppNative: host.port, WebApp: legacy },
+    LO: {
+      get MiniAppNative() {
+        throw new Error("Legacy discovery must not inspect native transport");
+      },
+      WebApp: {
+        initData: "legacy",
+        capabilities: ["expand"],
+        expand() {
+          expanded += 1;
+        },
+      },
+    },
   });
-  assert.equal(adapter.id, "lo");
-  assert.deepEqual([...adapter.capabilities].sort(), [
-    "expand",
-    "openLink",
-    "ready",
-  ]);
-  assert.deepEqual(adapter.snapshot(), {
-    colorScheme: "light",
-    theme: { background: "#ffffff" },
-    viewportHeight: undefined,
-    stableViewportHeight: undefined,
-    safeArea: undefined,
-    contentSafeArea: undefined,
-    isFullscreen: undefined,
-    isOrientationLocked: undefined,
-  });
-
+  assert.equal(adapter.id, "lo-legacy-webapp");
+  assert.deepEqual([...adapter.capabilities], ["expand"]);
   const client = createMiniAppClient(adapter);
-  assert.equal(await client.call("expand", undefined), undefined);
-  assert.equal(legacyExpand, 1);
-
-  const failed = client.call("openLink", { url: "https://example.com" });
-  const request = host.messages.at(-1);
-  result(host, request, {
-    ok: false,
-    error: { code: "host_error", message: "native failed" },
+  await client.call("expand", undefined);
+  assert.equal(expanded, 1);
+  await assert.rejects(client.call("ready", undefined), {
+    code: "unsupported",
   });
-  await assert.rejects(failed, { code: "failed", message: "native failed" });
-  assert.equal(legacyReady, 0);
-
-  let activated = 0;
-  let themes = 0;
-  const offActivated = client.on("activated", () => {
-    activated += 1;
-  });
-  const offTheme = client.on("themeChanged", () => {
-    themes += 1;
-  });
-  host.emit(
-    baseEnvelope(host.port.generation, {
-      kind: "event",
-      event: "activated",
-      payload: null,
-    }),
-  );
-  legacyListeners.get("themeChanged")();
-  assert.equal(activated, 1);
-  assert.equal(themes, 1);
-  offActivated();
-  offTheme();
+  client.dispose();
 });
 
-test("different launch sessions never compose and legacy-only identity is preserved", () => {
-  const host = nativePort();
-  const mismatched = createLegacyAdapter({
-    LO: {
-      MiniAppNative: host.port,
-      WebApp: { initData: "different", capabilities: ["location"] },
-    },
-  });
-  assert.equal(mismatched.id, "lo");
-  assert.equal(mismatched.capabilities.has("location"), false);
-
-  const legacyOnly = createLegacyAdapter({
-    LO: { WebApp: { initData: "legacy", capabilities: [] } },
-  });
-  assert.equal(legacyOnly.id, "lo-legacy-webapp");
+test("legacy discovery returns null for a native-only host", () => {
+  assert.equal(
+    createLegacyAdapter({ LO: { MiniAppNative: nativePort().port } }),
+    null,
+  );
 });
 
 test("abort sends one cancel for a pending request and retained callbacks stay inactive", async () => {

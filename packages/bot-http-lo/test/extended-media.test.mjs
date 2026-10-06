@@ -174,8 +174,8 @@ test("download cancellation cancels the underlying producer", async () => {
   await stream.cancel();
   assert.equal(cancelled, 1);
 });
-test("legacy descriptions are classified only in the adapter and structured fields take precedence", async () => {
-  for (const [description, reason, parameter] of [
+test("descriptions never fabricate structured reasons; explicit fields are preserved", async () => {
+  for (const [description] of [
     [
       "Bad Request: disable_notification is not supported yet",
       "unsupported_parameter",
@@ -202,8 +202,8 @@ test("legacy descriptions are classified only in the adapter and structured fiel
       bot.sendMessage({ conversationId: "42", text: "Fixture" }),
       (e) =>
         e instanceof BadRequest &&
-        e.details.reason === reason &&
-        e.details.parameter === parameter,
+        e.details.reason === undefined &&
+        e.details.parameter === undefined,
     );
   }
   const bot = client(() =>

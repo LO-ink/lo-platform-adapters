@@ -65,11 +65,7 @@ export async function fileBlob(
 }
 export async function mediaRequest(
   operation:
-    | "sendPhoto"
-    | "sendDocument"
-    | "sendVoice"
-    | "sendVideo"
-    | "sendAudio",
+    "sendPhoto" | "sendDocument" | "sendVoice" | "sendVideo" | "sendAudio",
   input: BotOperations[
     | "sendPhoto"
     | "sendDocument"

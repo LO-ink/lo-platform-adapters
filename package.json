@@ -11,11 +11,25 @@
     "check": "npm run check --workspaces --if-present && tsc -p examples/tsconfig.json",
     "format:check": "prettier --check .",
     "test:package": "node scripts/test-packages.mjs",
-    "test": "npm run build && node --test test/*.test.mjs && npm test --workspaces --if-present"
+    "test": "npm run build && node --test test/*.test.mjs && npm test --workspaces --if-present",
+    "lint": "eslint . --max-warnings 0",
+    "architecture": "depcruise --config .dependency-cruiser.cjs packages/*/src examples",
+    "format": "prettier --write .",
+    "security": "npm audit --audit-level=high",
+    "test:coverage": "c8 npm test",
+    "policy": "node scripts/check-policy.mjs",
+    "secrets": "node scripts/check-secrets.mjs",
+    "ci": "make ci"
   },
   "devDependencies": {
-    "@lo-ink/miniapp-sdk": "file:vendor/lo-ink-miniapp-sdk-0.20.1.tgz",
-    "prettier": "3.6.2",
-    "typescript": "5.9.3"
+    "@lo-ink/miniapp-sdk": "0.20.3",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "eslint": "10.12.0",
+    "@eslint/js": "10.0.1",
+    "typescript-eslint": "8.71.1",
+    "globals": "16.5.0",
+    "dependency-cruiser": "17.4.3",
+    "c8": "12.0.0"
   }
 }

@@ -31,7 +31,9 @@ def registry_json(url, headers):
         try:
             body = json.load(response)
         except (ValueError, UnicodeError):
-            raise RuntimeError("Registry returned an unrecognized response (HTTP " + str(status) + ")") from None
+            raise RuntimeError(
+                "Registry returned an unrecognized response (HTTP " + str(status) + ")"
+            ) from None
     return status, body
 
 
@@ -47,8 +49,12 @@ def registry_authorization(repository, insecure):
     if not username or not password:
         raise RuntimeError("Missing GHCR authorization")
     basic = base64.b64encode((username + ":" + password).encode()).decode()
-    query = urllib.parse.urlencode({"service": "ghcr.io", "scope": "repository:lo-ink/lo-bot-api-emulator:pull"})
-    status, body = registry_json("https://ghcr.io/token?" + query, {"Authorization": "Basic " + basic})
+    query = urllib.parse.urlencode(
+        {"service": "ghcr.io", "scope": "repository:lo-ink/lo-bot-api-emulator:pull"}
+    )
+    status, body = registry_json(
+        "https://ghcr.io/token?" + query, {"Authorization": "Basic " + basic}
+    )
     token = body.get("token") or body.get("access_token") if isinstance(body, dict) else None
     if status != 200 or not isinstance(token, str) or not token:
         raise RuntimeError("Registry authorization failed (HTTP " + str(status) + ")")
@@ -58,15 +64,32 @@ def registry_authorization(repository, insecure):
 def inspect_absent(repository, tag, authorization, insecure=False):
     registry, name = repository.split("/", 1)
     url = ("http://" if insecure else "https://") + registry + "/v2/" + name + "/manifests/" + tag
-    status, body = registry_json(url, {"Authorization": authorization, "Accept": "application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json"})
+    status, body = registry_json(
+        url,
+        {
+            "Authorization": authorization,
+            "Accept": "application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json",
+        },
+    )
     reference = repository + ":" + tag
     if status == 200:
         raise RuntimeError("Refusing to replace existing tag: " + reference)
     errors = body.get("errors") if isinstance(body, dict) else None
     # The Docker CLI can collapse a real 401 into 'no such manifest'. Only the
     # authenticated registry's explicit missing-name/manifest 404 is absence.
-    if status != 404 or not isinstance(errors, list) or not errors or any(not isinstance(error, dict) or error.get("code") not in ("MANIFEST_UNKNOWN", "NAME_UNKNOWN") for error in errors):
-        raise RuntimeError("Registry did not confirm tag absence (HTTP " + str(status) + "): " + reference)
+    if (
+        status != 404
+        or not isinstance(errors, list)
+        or not errors
+        or any(
+            not isinstance(error, dict)
+            or error.get("code") not in ("MANIFEST_UNKNOWN", "NAME_UNKNOWN")
+            for error in errors
+        )
+    ):
+        raise RuntimeError(
+            "Registry did not confirm tag absence (HTTP " + str(status) + "): " + reference
+        )
 
 
 def main():
@@ -79,9 +102,13 @@ def main():
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--insecure-local-registry", action="store_true")
     args = parser.parse_args()
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version) or not re.fullmatch(r"[0-9a-f]{40}", args.commit):
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version) or not re.fullmatch(
+        r"[0-9a-f]{40}", args.commit
+    ):
         parser.error("Expected a stable version and full source commit")
-    if args.insecure_local_registry and not re.fullmatch(r"(?:localhost|127\.0\.0\.1):[0-9]+/[a-z0-9/-]+", args.repository):
+    if args.insecure_local_registry and not re.fullmatch(
+        r"(?:localhost|127\.0\.0\.1):[0-9]+/[a-z0-9/-]+", args.repository
+    ):
         parser.error("Insecure registry checks are restricted to loopback test registries")
     tags = [args.version, "sha-" + args.commit]
     references = [args.repository + ":" + tag for tag in tags]
@@ -96,12 +123,30 @@ def main():
     for reference in references:
         subprocess.run(["docker", "tag", args.image_id, reference], check=True, timeout=60)
         subprocess.run(["docker", "push", reference], check=True, timeout=300)
-        image = json.loads(subprocess.check_output(["docker", "image", "inspect", args.image_id], text=True, timeout=60))[0]
-        digests = [value for value in image["RepoDigests"] if value.startswith(args.repository + "@sha256:")]
+        image = json.loads(
+            subprocess.check_output(
+                ["docker", "image", "inspect", args.image_id], text=True, timeout=60
+            )
+        )[0]
+        digests = [
+            value
+            for value in image["RepoDigests"]
+            if value.startswith(args.repository + "@sha256:")
+        ]
         if len(digests) != 1:
             raise RuntimeError("Expected one pushed repository digest")
         published.append(reference)
-        record = {"image": args.repository, "version": args.version, "source_commit": args.commit, "image_id": image["Id"], "digest_reference": digests[0], "platform": image["Os"] + "/" + image["Architecture"], "published_tags": published, "completed": len(published) == len(references), "public_anonymous_pull_verified": False}
+        record = {
+            "image": args.repository,
+            "version": args.version,
+            "source_commit": args.commit,
+            "image_id": image["Id"],
+            "digest_reference": digests[0],
+            "platform": image["Os"] + "/" + image["Architecture"],
+            "published_tags": published,
+            "completed": len(published) == len(references),
+            "public_anonymous_pull_verified": False,
+        }
         # Persist the first real push before attempting the second; a later error
         # must fail the job without hiding an already-published version digest.
         receipt = args.output / "publication.json"

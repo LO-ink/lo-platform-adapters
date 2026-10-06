@@ -138,6 +138,14 @@ export function createAdapter(
       throw new MiniAppError("unsupported", `${name} is unavailable`);
     }
   };
+  const invoke = (minimum: string, name: string, ...args: unknown[]) => {
+    requireVersion(minimum, name);
+    return Reflect.apply(
+      webApp[name] as (...values: unknown[]) => unknown,
+      webApp,
+      args,
+    );
+  };
   return {
     ...base,
     telegram: {
@@ -157,7 +165,7 @@ export function createAdapter(
       async checkHomeScreenStatus(options = {}) {
         requireVersion("8.0", "checkHomeScreenStatus");
         return withHostCallback((finish) => {
-          webApp.checkHomeScreenStatus((status: unknown) => {
+          invoke("8.0", "checkHomeScreenStatus", (status: unknown) => {
             if (
               status === "unsupported" ||
               status === "unknown" ||
@@ -177,7 +185,7 @@ export function createAdapter(
       },
       addToHomeScreen() {
         requireVersion("8.0", "addToHomeScreen");
-        webApp.addToHomeScreen();
+        invoke("8.0", "addToHomeScreen");
       },
       setVerticalSwipes(enabled) {
         if (typeof enabled !== "boolean")
@@ -186,7 +194,7 @@ export function createAdapter(
           ? "enableVerticalSwipes"
           : "disableVerticalSwipes";
         requireVersion("7.7", method);
-        webApp[method]();
+        invoke("7.7", method);
       },
       onHomeScreenAdded(listener) {
         requireVersion("8.0", "onEvent");
@@ -208,7 +216,7 @@ export function createAdapter(
           return Promise.reject(new TypeError("Invalid prepared chat ID"));
         }
         return withHostCallback<boolean>((finish) => {
-          webApp.requestChat(id, (sent: unknown) => {
+          invoke("9.6", "requestChat", id, (sent: unknown) => {
             if (typeof sent === "boolean") finish(null, sent);
             else
               finish(
@@ -236,7 +244,9 @@ export function createAdapter(
           return Promise.reject(new TypeError("Invalid emoji status duration"));
         }
         return withHostCallback<boolean>((finish) => {
-          webApp.setEmojiStatus(
+          invoke(
+            "8.0",
+            "setEmojiStatus",
             id,
             duration === undefined ? {} : { duration },
             (set: unknown) => {
@@ -254,7 +264,7 @@ export function createAdapter(
       },
       openTelegramLink(url) {
         requireVersion("6.1", "openTelegramLink");
-        webApp.openTelegramLink(url);
+        invoke("6.1", "openTelegramLink", url);
       },
     },
   };

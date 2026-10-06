@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated output and installed dependencies"
+paths = [
+  '''(^|/)(node_modules|\.venv|coverage|dist|dist-cjs|build|[^/]+\.egg-info|\.git)(/|$)''',
+]

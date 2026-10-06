@@ -2,7 +2,6 @@ import io
 import json
 import unittest
 
-from aiohttp import web
 from aiogram import Bot
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
@@ -14,6 +13,7 @@ from aiogram.exceptions import (
     TelegramUnauthorizedError,
 )
 from aiogram.types import BotCommand, BufferedInputFile
+from aiohttp import web
 
 TOKEN = "123456:lo-fixture-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
@@ -65,7 +65,10 @@ class ClientContract(unittest.IsolatedAsyncioTestCase):
         await self.bot.set_my_commands([BotCommand(command="start", description="Start")])
         self.assertEqual(self.calls[-1][0], f"/bot{TOKEN}/setMyCommands")
         self.assertEqual(self.requests[-1], ("POST", "application/x-www-form-urlencoded"))
-        self.assertEqual(json.loads(self.calls[-1][1]["commands"]), [{"command": "start", "description": "Start"}])
+        self.assertEqual(
+            json.loads(self.calls[-1][1]["commands"]),
+            [{"command": "start", "description": "Start"}],
+        )
 
     async def test_multipart_upload(self):
         self.result({"message_id": 1, "date": 1, "chat": {"id": 99, "type": "private"}})
@@ -78,7 +81,9 @@ class ClientContract(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(fields[attachment], {"filename": "sample.png", "bytes": b"fixture-image"})
 
     async def test_file_metadata_and_download_root(self):
-        self.result({"file_id": "asset", "file_unique_id": "asset-unique", "file_path": "photos/asset.png"})
+        self.result(
+            {"file_id": "asset", "file_unique_id": "asset-unique", "file_path": "photos/asset.png"}
+        )
         metadata = await self.bot.get_file("asset")
         self.assertEqual(self.requests[-1], ("POST", "application/x-www-form-urlencoded"))
         output = io.BytesIO()
@@ -88,10 +93,20 @@ class ClientContract(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.requests[-1][0], "GET")
 
     async def test_typed_errors_and_retry_guidance_without_implicit_retry(self):
-        for status, error_type in [(401, TelegramUnauthorizedError), (404, TelegramNotFound), (409, TelegramConflictError), (429, TelegramRetryAfter), (501, TelegramServerError)]:
+        for status, error_type in [
+            (401, TelegramUnauthorizedError),
+            (404, TelegramNotFound),
+            (409, TelegramConflictError),
+            (429, TelegramRetryAfter),
+            (501, TelegramServerError),
+        ]:
             with self.subTest(status=status):
                 self.status = status
-                self.response = {"ok": False, "error_code": status, "description": "fixture failure"}
+                self.response = {
+                    "ok": False,
+                    "error_code": status,
+                    "description": "fixture failure",
+                }
                 if status == 429:
                     self.response["parameters"] = {"retry_after": 9}
                 before = len(self.calls)

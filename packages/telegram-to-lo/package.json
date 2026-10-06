@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-telegram-to-lo",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Opt-in migration bridge for existing Telegram Mini Apps running in LO",
   "type": "module",
   "license": "MIT",
@@ -25,10 +25,10 @@
     "test": "node --test test/*.test.mjs"
   },
   "peerDependencies": {
-    "@lo-ink/miniapp-sdk": "^0.19.2 || ^0.20.0"
+    "@lo-ink/miniapp-sdk": "^0.19.2 || ^0.20.0 || ^0.21.0"
   },
   "dependencies": {
-    "@lo-ink/adapter-webapp-compat": "0.19.3"
+    "@lo-ink/adapter-webapp-compat": "0.20.0"
   },
   "engines": {
     "node": ">=20"

@@ -11,3 +11,11 @@ __pycache__/
 python/**/build/
 python/**/dist/
 .venv/
+coverage/
+.ruff_cache/
+.mypy_cache/
+
+.coverage
+.coverage.*
+**/*.egg-info/
+**/build/

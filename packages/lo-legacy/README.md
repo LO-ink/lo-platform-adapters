@@ -11,13 +11,11 @@ const adapter = createAdapter();
 const client = adapter ? createMiniAppClient(adapter) : null;
 ```
 
-This package preserves the 0.21 composition behavior: prefer native operations,
-then use legacy capabilities only when both launch assertions match exactly.
-Different sessions never compose. Native failures are never retried through the
-legacy API. Older partial native ports use the matching legacy appearance;
-complete native ports retain their own snapshot and event authority.
+This adapter selects only LO.WebApp. It never discovers or composes a native
+port. Select @lo-ink/adapter-lo explicitly for native operations. Capabilities,
+events and snapshots always belong to the selected transport.
 
-A legacy-only adapter keeps the `lo-legacy-webapp` identity. Your backend must
+The adapter keeps the `lo-legacy-webapp` identity. Your backend must
 verify LO launch data for that identity; it must not select another provider's
 signature algorithm from the compatibility API name. Launch data is never
 modified by this package.

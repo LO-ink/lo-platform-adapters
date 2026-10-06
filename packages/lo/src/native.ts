@@ -821,8 +821,7 @@ function request<K extends LoNativeOperation>(
 
   const finish = (
     outcome:
-      | { ok: true; value: OperationOutput<K> }
-      | { ok: false; error: unknown },
+      { ok: true; value: OperationOutput<K> } | { ok: false; error: unknown },
   ) => {
     if (!active) return;
     active = false;

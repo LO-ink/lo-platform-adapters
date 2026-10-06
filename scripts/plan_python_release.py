@@ -1,12 +1,13 @@
 """Select unpublished Python versions; registry failures must stop a release."""
-import json
+
 import hashlib
+import json
 import os
-from pathlib import Path
 import shutil
 import sys
 import time
 import tomllib
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
@@ -35,9 +36,7 @@ def expected_files(project, version):
 def project_version(root, project):
     if project not in {"lo-aiogram", "lo-bot-api-emulator"}:
         raise ValueError("Unexpected release project")
-    metadata = tomllib.loads(
-        (root / "python" / project / "pyproject.toml").read_text()
-    )["project"]
+    metadata = tomllib.loads((root / "python" / project / "pyproject.toml").read_text())["project"]
     if metadata["name"] != project:
         raise ValueError("Unexpected release project")
     version = metadata["version"]
@@ -55,11 +54,13 @@ def release_matrix(root, request=urlopen):
         version = project_version(root, project)
         published = published_release(project, version, request)
         if published is None:
-            pending.append({
-                "project": project,
-                "artifact": "python-" + project,
-                "environment": environment,
-            })
+            pending.append(
+                {
+                    "project": project,
+                    "artifact": "python-" + project,
+                    "environment": environment,
+                }
+            )
         elif set(published) != expected_files(project, version):
             raise ValueError(
                 f"Incomplete PyPI release {project} {version}; rerun the original failed "
@@ -99,7 +100,11 @@ def verify_upload(root, project, directory, request=urlopen):
     if published is None or set(published) != set(files):
         return False
     for filename, metadata in published.items():
-        if metadata.get("yanked") or metadata["digests"]["sha256"] != hashlib.sha256(files[filename].read_bytes()).hexdigest():
+        if (
+            metadata.get("yanked")
+            or metadata["digests"]["sha256"]
+            != hashlib.sha256(files[filename].read_bytes()).hexdigest()
+        ):
             raise ValueError("Public PyPI bytes differ from the checked release artifact")
     return True
 
@@ -109,7 +114,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 4 and sys.argv[1] == "--prepare-upload":
         values = {"has_uploads": str(prepare_upload(root, sys.argv[2], Path(sys.argv[3]))).lower()}
     elif len(sys.argv) == 4 and sys.argv[1] == "--verify-upload":
-        for attempt in range(10):
+        for _attempt in range(10):
             if verify_upload(root, sys.argv[2], Path(sys.argv[3])):
                 break
             time.sleep(3)
@@ -118,8 +123,10 @@ if __name__ == "__main__":
         values = {"public_integrity": "verified"}
     elif len(sys.argv) == 1:
         matrix = release_matrix(root)
-        values = {"matrix": json.dumps(matrix, separators=(",", ":")),
-                  "has_releases": str(bool(matrix["include"])).lower()}
+        values = {
+            "matrix": json.dumps(matrix, separators=(",", ":")),
+            "has_releases": str(bool(matrix["include"])).lower(),
+        }
     else:
         raise ValueError("Unexpected release planner arguments")
     print(json.dumps(values))

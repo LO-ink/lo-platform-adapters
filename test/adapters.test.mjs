@@ -289,7 +289,7 @@ test("disposing during location initialization does not open a native request", 
   assert.equal(locationRequests, 0);
 });
 
-test("button fallback rejects unsupported styling before applying visibility", async () => {
+test("main button requires its canonical API and never decomposes a request", async () => {
   const calls = [];
   const adapter = createLoAdapter({
     LO: {
@@ -322,11 +322,14 @@ test("button fallback rejects unsupported styling before applying visibility", a
     (error) => error.code === "unsupported",
   );
   assert.deepEqual(calls, []);
-  await client.call("setButton", {
-    button: "main",
-    params: { text: "Open", active: true, visible: true },
-  });
-  assert.deepEqual(calls, [["text", "Open"], ["enable"], ["show"]]);
+  await assert.rejects(
+    client.call("setButton", {
+      button: "main",
+      params: { text: "Open", active: true, visible: true },
+    }),
+    { code: "unsupported" },
+  );
+  assert.deepEqual(calls, []);
 });
 
 test("storage rejection remains a failed host request", async () => {

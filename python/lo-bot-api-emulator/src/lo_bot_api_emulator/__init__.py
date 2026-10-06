@@ -1,4 +1,5 @@
 """Request validation fixtures. Storage, authorization and transcoding require live LO."""
+
 import argparse
 import json
 from importlib.resources import files
@@ -54,7 +55,11 @@ class LoBotApiEmulator:
                         if size > CONTRACT["limits"]["fileBytes"]:
                             raise ApiRefusal("Bad Request: file is too big")
                         data.extend(chunk)
-                    uploads[part.name] = {"filename": part.filename, "data": bytes(data), "size": size}
+                    uploads[part.name] = {
+                        "filename": part.filename,
+                        "data": bytes(data),
+                        "size": size,
+                    }
         else:
             fields = dict(await request.post())
         return fields, uploads
@@ -85,9 +90,13 @@ class LoBotApiEmulator:
             self.assets[reference] = source
         else:
             reference = source
-        result = {"message_id": message_id or self.next_id, "date": 1, "chat": {"id": int(chat), "type": "private" if int(chat) > 0 else "group"}}
+        result = {
+            "message_id": message_id or self.next_id,
+            "date": 1,
+            "chat": {"id": int(chat), "type": "private" if int(chat) > 0 else "group"},
+        }
         self.next_id += 1
-        asset = {"file_id": reference, "file_unique_id": reference + "-unique"}
+        asset: dict[str, object] = {"file_id": reference, "file_unique_id": reference + "-unique"}
         if kind == "photo":
             asset.update(width=1, height=1)
             result[kind] = [asset]
@@ -108,66 +117,113 @@ class LoBotApiEmulator:
         if definition is None:
             raise ApiRefusal("Not Found: method not found", 404)
         if not definition["implemented"]:
-            raise ApiRefusal("Method not implemented: " + method, 501, {"reason":"method_not_implemented"})
+            raise ApiRefusal(
+                "Method not implemented: " + method, 501, {"reason": "method_not_implemented"}
+            )
         if definition["parameters"] is None:
             # Do not claim a server method passed when this fixture does not model it.
             raise ApiRefusal("Emulator does not model this method: " + method, 501)
         if "method" in uploads or "method" in fields and fields["method"] != method:
-            raise ApiRefusal("Bad Request: method must match the request path", parameters={"reason":"unsupported_parameter","parameter":"method"})
+            raise ApiRefusal(
+                "Bad Request: method must match the request path",
+                parameters={"reason": "unsupported_parameter", "parameter": "method"},
+            )
         fields.pop("method", None)
         allowed = set(definition["parameters"])
         for key in ("photo", "document", "voice", "audio", "video", "thumbnail"):
             value = fields.get(key)
-            if key in allowed and isinstance(value, str) and value.startswith("attach://") and self.single_attach:
+            if (
+                key in allowed
+                and isinstance(value, str)
+                and value.startswith("attach://")
+                and self.single_attach
+            ):
                 allowed.add(value[9:])
         media = None
         if method == "sendMediaGroup":
             try:
                 media = self.decoded(fields.get("media"))
             except (ValueError, TypeError):
-                raise ApiRefusal("Bad Request: media must be a JSON array")
-            if not isinstance(media, list) or not CONTRACT["inputMedia"]["minItems"] <= len(media) <= CONTRACT["inputMedia"]["maxItems"]:
+                raise ApiRefusal("Bad Request: media must be a JSON array") from None
+            if (
+                not isinstance(media, list)
+                or not CONTRACT["inputMedia"]["minItems"]
+                <= len(media)
+                <= CONTRACT["inputMedia"]["maxItems"]
+            ):
                 raise ApiRefusal("Bad Request: media must include 2 to 10 items")
             for index, item in enumerate(media):
                 if not isinstance(item, dict):
                     raise ApiRefusal("Bad Request: invalid media item")
                 for key in sorted(item):
                     if key not in CONTRACT["inputMedia"]["parameters"]:
-                        raise ApiRefusal("Bad Request: media item " + str(index) + ": " + key + " is not supported yet")
+                        raise ApiRefusal(
+                            "Bad Request: media item "
+                            + str(index)
+                            + ": "
+                            + key
+                            + " is not supported yet"
+                        )
                 value = item.get("media")
                 if isinstance(value, str) and value.startswith("attach://"):
                     allowed.add(value[9:])
             types = {item.get("type") for item in media}
             for item in media:
                 if item.get("type") not in CONTRACT["inputMedia"]["types"]:
-                    raise ApiRefusal("Bad Request: media type " + str(item.get("type")) + " is not supported yet")
+                    raise ApiRefusal(
+                        "Bad Request: media type " + str(item.get("type")) + " is not supported yet"
+                    )
             if len(types) != 1:
                 raise ApiRefusal("Bad Request: a media group must contain items of one type")
             if any(item.get("caption") for item in media[1:]):
-                raise ApiRefusal("Bad Request: only the first item of a media group may carry a caption")
+                raise ApiRefusal(
+                    "Bad Request: only the first item of a media group may carry a caption"
+                )
         if not definition.get("allowUnknownParameters"):
             unknown = sorted((set(fields) | set(uploads)) - allowed)
             if unknown:
-                raise ApiRefusal("Bad Request: " + unknown[0] + " is not supported yet", parameters={"reason":"unsupported_parameter","parameter":unknown[0]})
+                raise ApiRefusal(
+                    "Bad Request: " + unknown[0] + " is not supported yet",
+                    parameters={"reason": "unsupported_parameter", "parameter": unknown[0]},
+                )
         if method.startswith("send") or method.startswith("editMessage"):
             chat = fields.get("chat_id")
             try:
-                if isinstance(chat, bool) or str(int(chat)) != str(chat) or not -(2**63) <= int(chat) < 2**63 or int(chat) == 0:
+                if (
+                    isinstance(chat, bool)
+                    or str(int(chat)) != str(chat)
+                    or not -(2**63) <= int(chat) < 2**63
+                    or int(chat) == 0
+                ):
                     raise ValueError()
             except (ValueError, TypeError):
-                raise ApiRefusal("Bad Request: chat not found")
+                raise ApiRefusal("Bad Request: chat not found") from None
         markup = fields.get("reply_markup")
         if markup is not None:
             try:
                 markup = self.decoded(markup)
             except (TypeError, ValueError):
-                raise ApiRefusal("Bad Request: invalid reply_markup")
+                raise ApiRefusal("Bad Request: invalid reply_markup") from None
             if not isinstance(markup, dict):
                 raise ApiRefusal("Bad Request: invalid reply_markup")
             if method != "sendMessage" and set(markup) != {"inline_keyboard"}:
                 raise ApiRefusal("Bad Request: only inline keyboard is supported")
         if method == "getMe":
-            return {"id": 7, "is_bot": True, "first_name": "Fixture", "can_join_groups": True, "can_read_all_group_messages": False, "supports_inline_queries": False, "capabilities": {"video_uploads": self.video_uploads, "audio_uploads": False, "single_attach": self.single_attach, "media_groups": True, "chat_actions": False}}
+            return {
+                "id": 7,
+                "is_bot": True,
+                "first_name": "Fixture",
+                "can_join_groups": True,
+                "can_read_all_group_messages": False,
+                "supports_inline_queries": False,
+                "capabilities": {
+                    "video_uploads": self.video_uploads,
+                    "audio_uploads": False,
+                    "single_attach": self.single_attach,
+                    "media_groups": True,
+                    "chat_actions": False,
+                },
+            }
         if method == "getUpdates":
             return []
         if method == "getFile":
@@ -183,23 +239,47 @@ class LoBotApiEmulator:
                 raise ApiRefusal("Bad Request: message text is empty")
             if len(text.encode("utf-16-le")) // 2 > CONTRACT["limits"]["textUtf16"]:
                 raise ApiRefusal("Bad Request: message is too long")
-            result = {"message_id": self.next_id, "date": 1, "chat": {"id": int(fields["chat_id"]), "type": "private"}, "text": text}
+            result = {
+                "message_id": self.next_id,
+                "date": 1,
+                "chat": {"id": int(fields["chat_id"]), "type": "private"},
+                "text": text,
+            }
             self.next_id += 1
             return result
         if method == "sendMediaGroup":
-            sources = [self.source(item["type"], item.get("media"), uploads, album=True) for item in media]
-            cached_documents = [source for item, source in zip(media, sources) if item["type"] == "document" and isinstance(source, str)]
+            assert isinstance(media, list)
+            sources = [
+                self.source(item["type"], item.get("media"), uploads, album=True) for item in media
+            ]
+            cached_documents = [
+                source
+                for item, source in zip(media, sources, strict=True)
+                if item["type"] == "document" and isinstance(source, str)
+            ]
             if len(cached_documents) != len(set(cached_documents)):
                 # Observed core constraint: duplicate document IDs do not form an album.
                 raise ApiRefusal("Bad Request: message text is empty")
-            for item, source in zip(media, sources):
+            for item, source in zip(media, sources, strict=True):
                 caption = item.get("caption")
-                if caption is not None and (not isinstance(caption, str) or len(caption.encode("utf-16-le")) // 2 > CONTRACT["limits"]["captionUtf16"]):
+                if caption is not None and (
+                    not isinstance(caption, str)
+                    or len(caption.encode("utf-16-le")) // 2 > CONTRACT["limits"]["captionUtf16"]
+                ):
                     raise ApiRefusal("Bad Request: caption is too long")
-                if item["type"] == "photo" and isinstance(source, dict) and source["size"] > CONTRACT["limits"]["photoBytes"]:
+                if (
+                    item["type"] == "photo"
+                    and isinstance(source, dict)
+                    and source["size"] > CONTRACT["limits"]["photoBytes"]
+                ):
                     raise ApiRefusal("Bad Request: file is too big")
             group_id = self.next_id
-            results = [self.media_message(fields["chat_id"], item["type"], source, item.get("caption"), group_id) for item, source in zip(media, sources)]
+            results = [
+                self.media_message(
+                    fields["chat_id"], item["type"], source, item.get("caption"), group_id
+                )
+                for item, source in zip(media, sources, strict=True)
+            ]
             for result in results:
                 result["media_group_id"] = str(group_id)
             return results
@@ -210,9 +290,17 @@ class LoBotApiEmulator:
                 if isinstance(source, str):
                     for key in definition["uploadOnly"]:
                         if key in fields or key in uploads:
-                            raise ApiRefusal("Bad Request: " + key + " applies only to an uploaded video, not to a file identifier", parameters={"reason":"upload_only","parameter":key})
+                            raise ApiRefusal(
+                                "Bad Request: "
+                                + key
+                                + " applies only to an uploaded video, not to a file identifier",
+                                parameters={"reason": "upload_only", "parameter": key},
+                            )
                 elif not self.video_uploads:
-                    raise ApiRefusal("Bad Request: video must be a file identifier", parameters={"reason":"feature_disabled","parameter":"video"})
+                    raise ApiRefusal(
+                        "Bad Request: video must be a file identifier",
+                        parameters={"reason": "feature_disabled", "parameter": "video"},
+                    )
                 elif self.video_retry_count:
                     self.video_retry_count -= 1
                     raise ApiRefusal("Too Many Requests: retry after 10", 429, {"retry_after": 10})
@@ -220,17 +308,38 @@ class LoBotApiEmulator:
                     thumbnail = self.source("thumbnail", fields["thumbnail"], uploads)
                     if not isinstance(thumbnail, dict):
                         raise ApiRefusal("Bad Request: thumbnail must be an uploaded file")
-                for key, maximum in (("duration", CONTRACT["limits"]["videoDurationSeconds"]), ("width", CONTRACT["limits"]["videoSidePixels"]), ("height", CONTRACT["limits"]["videoSidePixels"])):
-                    if key in fields and (str(fields[key]).isdigit() is False or not 0 <= int(fields[key]) <= maximum):
-                        raise ApiRefusal(f"Bad Request: {key} must be an integer between 0 and {maximum}")
+                for key, maximum in (
+                    ("duration", CONTRACT["limits"]["videoDurationSeconds"]),
+                    ("width", CONTRACT["limits"]["videoSidePixels"]),
+                    ("height", CONTRACT["limits"]["videoSidePixels"]),
+                ):
+                    if key in fields and (
+                        str(fields[key]).isdigit() is False or not 0 <= int(fields[key]) <= maximum
+                    ):
+                        raise ApiRefusal(
+                            f"Bad Request: {key} must be an integer between 0 and {maximum}"
+                        )
             if kind == "audio" and isinstance(source, dict):
                 raise ApiRefusal("Bad Request: audio must be a file identifier")
             caption = fields.get("caption")
-            if caption is not None and len(caption.encode("utf-16-le")) // 2 > CONTRACT["limits"]["captionUtf16"]:
+            if (
+                caption is not None
+                and len(caption.encode("utf-16-le")) // 2 > CONTRACT["limits"]["captionUtf16"]
+            ):
                 raise ApiRefusal("Bad Request: caption is too long")
             return self.media_message(fields["chat_id"], kind, source, caption)
-        if method in ("setMyCommands", "deleteMyCommands", "deleteWebhook", "setWebhook", "setChatMenuButton", "deleteMessage", "answerCallbackQuery"):
-            if method == "deleteMessage" and (not str(fields.get("message_id", "")).isdigit() or "chat_id" not in fields):
+        if method in (
+            "setMyCommands",
+            "deleteMyCommands",
+            "deleteWebhook",
+            "setWebhook",
+            "setChatMenuButton",
+            "deleteMessage",
+            "answerCallbackQuery",
+        ):
+            if method == "deleteMessage" and (
+                not str(fields.get("message_id", "")).isdigit() or "chat_id" not in fields
+            ):
                 raise ApiRefusal("Bad Request: message to delete not found")
             if method == "setMyCommands":
                 commands = self.decoded(fields.get("commands"))
@@ -254,7 +363,9 @@ class LoBotApiEmulator:
         except (ValueError, TypeError, KeyError, UnicodeError):
             status = 400
             body = {"ok": False, "error_code": 400, "description": "Bad Request: malformed request"}
-        self.requests.append({"method": method, "fields": sorted(fields), "files": sorted(uploads), "status": status})
+        self.requests.append(
+            {"method": method, "fields": sorted(fields), "files": sorted(uploads), "status": status}
+        )
         return web.json_response(body, status=status)
 
 
@@ -264,5 +375,7 @@ def main():
     parser.add_argument("--disable-video-uploads", action="store_true")
     parser.add_argument("--legacy-single-attach", action="store_true")
     args = parser.parse_args()
-    emulator = LoBotApiEmulator(video_uploads=not args.disable_video_uploads, single_attach=not args.legacy_single_attach)
+    emulator = LoBotApiEmulator(
+        video_uploads=not args.disable_video_uploads, single_attach=not args.legacy_single_attach
+    )
     web.run_app(emulator.app(), host="0.0.0.0", port=args.port)

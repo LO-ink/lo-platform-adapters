@@ -3,7 +3,6 @@ import { wireReplyMarkup, wireMenuButton } from "./keyboard.js";
 import { mediaRequest, albumRequest } from "./media.js";
 import { downloadFileStream } from "./download.js";
 import {
-  BotError,
   BotApiError as HttpBotError,
   RateLimited,
   NotAllowed,
@@ -604,10 +603,7 @@ function normalizeResult<K extends keyof BotOperations>(
                 } as const
               )[
                 operation as
-                  | "sendDocument"
-                  | "sendVoice"
-                  | "sendVideo"
-                  | "sendAudio"
+                  "sendDocument" | "sendVoice" | "sendVideo" | "sendAudio"
               ]
             ];
       const file = record(media);
@@ -704,28 +700,6 @@ export function createLoHttpBotTransport(
               .replace(/[1-9][0-9]*:[A-Za-z0-9_-]+/g, "[redacted]")
               .replace(/https?:\/\/[^\s]+/g, "[URL]")
           : undefined;
-      // Older installations return descriptions only; keep this fallback in the adapter.
-      if (!details.reason && typeof safeDescription === "string") {
-        const unsupported =
-          /^Bad Request: ([a-z_]+) is not supported yet$/.exec(safeDescription);
-        const uploadOnly =
-          /^Bad Request: ([a-z_]+) applies only to an uploaded video, not to a file identifier$/.exec(
-            safeDescription,
-          );
-        return new BadRequest(
-          safeDescription,
-          status,
-          platformCode,
-          unsupported
-            ? { parameter: unsupported[1], reason: "unsupported_parameter" }
-            : uploadOnly
-              ? { parameter: uploadOnly[1], reason: "upload_only" }
-              : safeDescription ===
-                  "Bad Request: video must be a file identifier"
-                ? { parameter: "video", reason: "feature_disabled" }
-                : details,
-        );
-      }
       return new BadRequest(safeDescription, status, platformCode, details);
     }
     const code = canonicalCode(platformCode);
@@ -819,7 +793,6 @@ export function createLoHttpBotTransport(
       parsed = parseJson(text);
     } catch (error) {
       if (!response.ok) {
-        const code = canonicalCode(response.status);
         throw apiError(
           response.status,
           response.status,
@@ -856,7 +829,6 @@ export function createLoHttpBotTransport(
           response.status,
         );
       }
-      const code = canonicalCode(platformCode);
       throw apiError(
         response.status,
         platformCode,
