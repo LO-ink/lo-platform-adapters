@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  readFileSync,
+  mkdirSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const platform = process.platform;
 const architecture = { arm64: "arm64", x64: "x64" }[process.arch];
@@ -36,38 +42,52 @@ try {
     temp,
     "gitleaks",
   ]);
+  const config = resolve(".gitleaks.toml");
+  const fixture = join(temp, "fixture");
+  mkdirSync(fixture);
+  const candidate = `123456:${"A".repeat(43)}`;
+  for (const [value, expected] of [
+    [candidate, 1],
+    [`${candidate}A`, 0],
+  ]) {
+    writeFileSync(
+      join(fixture, "credential.json"),
+      JSON.stringify({ credential: value }),
+    );
+    const probe = spawnSync(
+      join(temp, "gitleaks"),
+      [
+        "dir",
+        fixture,
+        "--config",
+        config,
+        "--redact",
+        "--no-banner",
+        "--report-format",
+        "json",
+        "--report-path",
+        join(temp, "probe.json"),
+      ],
+      { encoding: "utf8" },
+    );
+    if (probe.error || probe.signal || probe.status !== expected)
+      throw new Error("LO credential scanner regression failed");
+    if (
+      expected === 1 &&
+      !JSON.parse(readFileSync(join(temp, "probe.json"), "utf8")).some(
+        (finding) => finding.RuleID === "lo-bot-token",
+      )
+    )
+      throw new Error("LO credential rule is not active");
+  }
   const result = spawnSync(
     join(temp, "gitleaks"),
-    [
-      "dir",
-      ".",
-      "--redact",
-      "--no-banner",
-      "--report-format",
-      "json",
-      "--report-path",
-      join(temp, "report.json"),
-    ],
+    ["dir", ".", "--redact", "--no-banner"],
     { stdio: "inherit" },
   );
   if (result.error) throw result.error;
   if (result.signal)
     throw new Error(`Secret scanner terminated: ${result.signal}`);
-  if (result.status === 1) {
-    const report = JSON.parse(readFileSync(join(temp, "report.json"), "utf8"));
-    console.error(
-      JSON.stringify(
-        report.map(({ File, StartLine, RuleID, Fingerprint }) => ({
-          File,
-          StartLine,
-          RuleID,
-          Fingerprint,
-        })),
-        null,
-        2,
-      ),
-    );
-  }
   process.exitCode = result.status;
 } finally {
   rmSync(temp, { recursive: true, force: true });

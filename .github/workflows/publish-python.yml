@@ -18,6 +18,9 @@ jobs:
        github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       matrix: ${{ steps.releases.outputs.matrix }}
       has_releases: ${{ steps.releases.outputs.has_releases }}
@@ -25,6 +28,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: "22" }
+      - name: Require exact-revision Adapter checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          RELEASE_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+        run: make release-check
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.13"

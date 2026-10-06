@@ -6,3 +6,10 @@ description = "Generated output and installed dependencies"
 paths = [
   '''(^|/)(node_modules|\.venv|coverage|dist|dist-cjs|build|[^/]+\.egg-info|\.git)(/|$)''',
 ]
+
+[[rules]]
+id = "lo-bot-token"
+description = "LO bot credential"
+regex = '''(?:^|[^A-Za-z0-9_-])([1-9][0-9]{0,18}:[A-Za-z0-9_-]{43})(?:$|[^A-Za-z0-9_-])'''
+secretGroup = 1
+keywords = [":"]

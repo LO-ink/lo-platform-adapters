@@ -70,3 +70,8 @@ branch-inclusive coverage, distribution checks and pip-audit. `make bot-framewor
 strict-contract` verifies Telegraf and grammY against the explicit LO contract;
 `make emulator-container` verifies the packaged emulator image. Use `PYTHON` to
 select an installed Python 3.11+ interpreter.
+
+Repository policy checks require Python 3 for Python comment tokenization. YAML
+comments are parsed as YAML; embedded scripts and localized scalar values retain
+their own language. LO credentials are checked by the root Gitleaks configuration
+and a synthetic scanner regression before each repository scan.

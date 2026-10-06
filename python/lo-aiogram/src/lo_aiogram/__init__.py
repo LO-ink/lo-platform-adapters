@@ -5,9 +5,9 @@ from urllib.parse import urlsplit
 
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
-from aiogram.exceptions import TelegramBadRequest, TelegramServerError
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError, TelegramServerError
 from aiogram.types import InputFile
-from aiohttp import FormData
+from aiohttp import ClientError, ClientTimeout, FormData
 
 __all__ = ["LoAiohttpSession"]
 
@@ -34,6 +34,54 @@ class LoAiohttpSession(AiohttpSession):
             raise ValueError("Use HTTPS or explicitly enabled loopback HTTP")
         super().__init__(api=TelegramAPIServer.from_base(base_url.rstrip("/")), **kwargs)
 
+    async def make_request(self, bot, method, timeout=None):
+        session = await self.create_session()
+        url = self.api.api_url(token=bot.token, method=method.__api_method__)
+        form = self.build_form_data(bot=bot, method=method)
+        try:
+            async with session.post(
+                url,
+                data=form,
+                timeout=ClientTimeout(total=self.timeout if timeout is None else timeout),
+                allow_redirects=False,
+            ) as response:
+                if 300 <= response.status < 400:
+                    raise TelegramNetworkError(
+                        method=method, message="LO Bot API redirects are not allowed"
+                    )
+                content = await response.text()
+                status = response.status
+        except TimeoutError:
+            raise TelegramNetworkError(
+                method=method, message="LO Bot API request timed out"
+            ) from None
+        except ClientError:
+            raise TelegramNetworkError(method=method, message="LO Bot API request failed") from None
+        return self.check_response(bot, method, status, content).result
+
+    async def stream_content(
+        self, url, headers=None, timeout=30, chunk_size=65536, raise_for_status=True
+    ):
+        session = await self.create_session()
+        try:
+            async with session.get(
+                url,
+                headers=headers,
+                timeout=timeout,
+                allow_redirects=False,
+                raise_for_status=False,
+            ) as response:
+                if 300 <= response.status < 400:
+                    raise ClientError("LO file redirects are not allowed")
+                if raise_for_status:
+                    response.raise_for_status()
+                async for chunk in response.content.iter_chunked(chunk_size):
+                    yield chunk
+        except TimeoutError:
+            raise TimeoutError("LO file download timed out") from None
+        except ClientError:
+            raise ClientError("LO file download failed") from None
+
     def build_form_data(self, bot, method):
         if getattr(method, "business_connection_id", None) is not None:
             raise ValueError("LO secretary operations require native consent context")
@@ -52,16 +100,11 @@ class LoAiohttpSession(AiohttpSession):
         return form
 
     def check_response(self, bot, method, status_code, content):
-        if status_code >= 500:
-            try:
-                parsed = json.loads(content)
-            except (ValueError, TypeError):
-                parsed = None
-            if not isinstance(parsed, dict) or not isinstance(parsed.get("ok"), bool):
+        try:
+            if status_code >= 500:
                 raise TelegramServerError(
                     method=method, message="LO Bot API is temporarily unavailable"
                 )
-        try:
             return super().check_response(bot, method, status_code, content)
         except (TelegramBadRequest, TelegramServerError) as error:
             try:
