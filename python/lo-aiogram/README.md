@@ -31,7 +31,7 @@ bot = Bot(os.environ["LO_BOT_TOKEN"], session=session)
 compat.reset(bot)  # after an installation upgrade or configuration change
 ```
 
-Caches are isolated by API endpoint and credential. Structured failure reasons take precedence over legacy description matching. Set `probe_capabilities=False` only when the application handles installation discovery itself. Secretary operations with `business_connection_id` are rejected locally: use the native SDK with explicit LO consent context. They must never silently become ordinary bot sends.
+Caches are isolated by API endpoint and credential. Only the newest started capability request may update the cache; failed refreshes preserve established state, and `reset(bot)` invalidates pending capability responses. Structured failure reasons take precedence over legacy description matching. Set `probe_capabilities=False` only when the application handles installation discovery itself. Secretary operations with `business_connection_id` are rejected locally: use the native SDK with explicit LO consent context. They must never silently become ordinary bot sends.
 
 The bundled contract records its source commit. It describes accepted requests, not storage, chat permissions, production rollout or installation flags. Conformance tests use the strict LO emulator; live acceptance remains a separate check.
 

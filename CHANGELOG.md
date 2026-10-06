@@ -2,6 +2,8 @@
 
 ## lo-aiogram 0.1.0 (unpublished)
 
+- Fence concurrent installation-capability responses by request ownership and invalidate pending responses on reset. Failed refreshes preserve established cache state.
+
 - Apply the existing one-field refusal fallback to cached-video sends. Confirmed unsupported fields are omitted once and remembered; uploads and uncertain failures remain excluded from this generic retry.
 
 ## adapter-lo 0.23.2
