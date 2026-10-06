@@ -1,5 +1,9 @@
 # Changelog
 
+## lo-aiogram 0.1.0 (unpublished)
+
+- Apply the existing one-field refusal fallback to cached-video sends. Confirmed unsupported fields are omitted once and remembered; uploads and uncertain failures remain excluded from this generic retry.
+
 ## adapter-lo 0.23.2
 
 - Use current snapshots from native LO ports advertising optional `liveSnapshot`, including across periods with no event subscriptions. Preserve event overlays for older launch-snapshot ports.

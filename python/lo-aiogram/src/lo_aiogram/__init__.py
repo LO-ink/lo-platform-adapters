@@ -223,9 +223,9 @@ class LoBotApiCompat:
             self.remember_capabilities(scope, await make_request(bot, GetMe()))
         if name == "sendChatAction" and scope in self.chat_action_disabled:
             return True
-        if name == "sendVideo":
-            return await self.send_video(make_request, bot, method, scope)
         try:
+            if name == "sendVideo":
+                return await self.send_video(make_request, bot, method, scope)
             return await make_request(bot, method)
         except TelegramServerError as error:
             if name == "sendChatAction" and (getattr(error, "lo_reason", None) == "method_not_implemented" or error.message == "Method not implemented: sendChatAction"):

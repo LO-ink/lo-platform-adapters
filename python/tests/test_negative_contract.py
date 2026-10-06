@@ -97,3 +97,65 @@ class DocumentAlbumConformance(unittest.TestCase):
         self.assertEqual(emulator.next_id, next_id)
         accepted = emulator.validate("sendMediaGroup", {"chat_id": 42, "media": [{"type": "document", "media": first}, {"type": "document", "media": second}]}, {})
         self.assertEqual(len(accepted), 2)
+
+class CachedVideoRefusalFallback(Fixture):
+    async def test_cached_video_structured_refusal_retries_once_and_remembers_field(self):
+        uploaded = await self.bot.send_video(42, self.upload())
+        validate = self.emulator.validate
+        def reject(method, fields, uploads):
+            if method == 'sendVideo' and 'parse_mode' in fields:
+                raise ApiRefusal('Readable text changed', parameters={'reason': 'unsupported_parameter', 'parameter': 'parse_mode'})
+            return validate(method, fields, uploads)
+        self.emulator.validate = reject
+        start = len(self.emulator.requests)
+        result = await self.bot.send_video(42, uploaded.video.file_id, caption='Fixture', parse_mode='HTML')
+        self.assertIsNotNone(result.video)
+        self.assertEqual([r['status'] for r in self.emulator.requests[start:]], [400, 200])
+        self.assertTrue(all(r['files'] == [] for r in self.emulator.requests[start:]))
+        await self.bot.send_video(42, uploaded.video.file_id, caption='Fixture', parse_mode='HTML')
+        self.assertEqual(len(self.emulator.requests), start + 3)
+        self.assertNotIn('parse_mode', self.emulator.requests[-1]['fields'])
+
+    async def test_cached_video_second_field_refusal_propagates_without_retry_loop(self):
+        from aiogram.exceptions import TelegramBadRequest
+        uploaded = await self.bot.send_video(42, self.upload())
+        validate = self.emulator.validate
+        def reject(method, fields, uploads):
+            if method == 'sendVideo':
+                field = 'parse_mode' if 'parse_mode' in fields else 'supports_streaming'
+                raise ApiRefusal('Readable text changed', parameters={'reason': 'unsupported_parameter', 'parameter': field})
+            return validate(method, fields, uploads)
+        self.emulator.validate = reject
+        start = len(self.emulator.requests)
+        with self.assertRaises(TelegramBadRequest):
+            await self.bot.send_video(42, uploaded.video.file_id, parse_mode='HTML', supports_streaming=True)
+        self.assertEqual([r['status'] for r in self.emulator.requests[start:]], [400, 400])
+        self.assertTrue(all(r['files'] == [] for r in self.emulator.requests[start:]))
+
+    async def test_video_upload_structured_field_refusal_is_not_replayed(self):
+        from aiogram.exceptions import TelegramBadRequest
+        validate = self.emulator.validate
+        def reject(method, fields, uploads):
+            if method == 'sendVideo':
+                raise ApiRefusal('Readable text changed', parameters={'reason': 'unsupported_parameter', 'parameter': 'parse_mode'})
+            return validate(method, fields, uploads)
+        self.emulator.validate = reject
+        with self.assertRaises(TelegramBadRequest):
+            await self.bot.send_video(42, self.upload(), parse_mode='HTML')
+        self.assertEqual(len(self.emulator.requests), 1)
+        self.assertEqual(self.emulator.requests[0]['files'], ['video'])
+        self.assertEqual(self.emulator.assets, {})
+
+    async def test_cached_video_server_failure_is_not_retried(self):
+        from aiogram.exceptions import TelegramServerError
+        uploaded = await self.bot.send_video(42, self.upload())
+        validate = self.emulator.validate
+        def reject(method, fields, uploads):
+            if method == 'sendVideo':
+                raise ApiRefusal('Unavailable', 503)
+            return validate(method, fields, uploads)
+        self.emulator.validate = reject
+        start = len(self.emulator.requests)
+        with self.assertRaises(TelegramServerError):
+            await self.bot.send_video(42, uploaded.video.file_id, parse_mode='HTML')
+        self.assertEqual(len(self.emulator.requests), start + 1)
