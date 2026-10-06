@@ -76,3 +76,5 @@ jobs:
         working-directory: compatibility/bot-frameworks
       - run: docker build -t lo-bot-api-emulator:ci python/lo-bot-api-emulator
         if: matrix.python == '3.13'
+      - run: python scripts/check-emulator-container.py lo-bot-api-emulator:ci
+        if: matrix.python == '3.13'
