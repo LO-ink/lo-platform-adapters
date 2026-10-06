@@ -1,8 +1,10 @@
 # LO integrations and migration adapters
 
-The native LO API and compatibility integrations are separate packages. Platform
-globals, external scripts, version gates and foreign wire shapes never belong in
-`@lo-ink/miniapp-sdk`.
+Native LO transports belong to their SDKs. New Mini Apps install only
+`@lo-ink/miniapp-sdk` and call `createLoClient`; new bots install only
+`@lo-ink/bot-sdk` and call `createLoBotClient`. The native adapter packages below
+preserve existing imports through pure SDK re-exports. External host globals,
+script loaders and compatibility wire shapes remain in explicit integrations.
 
 | Package                              | Direction and responsibility                                          |
 | ------------------------------------ | --------------------------------------------------------------------- |

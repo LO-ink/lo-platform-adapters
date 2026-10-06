@@ -19,7 +19,7 @@
   },
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node ../../scripts/build-package.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/*.test.mjs",
     "prepack": "npm run build"

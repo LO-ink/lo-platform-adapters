@@ -12,7 +12,7 @@ const client = adapter ? createMiniAppClient(adapter) : null;
 ```
 
 This adapter selects only LO.WebApp. It never discovers or composes a native
-port. Select createLoClient from @lo-ink/miniapp-sdk explicitly for native operations. Capabilities,
+port. Select `createLoClient` from `@lo-ink/miniapp-sdk` explicitly for native operations. Capabilities,
 events and snapshots always belong to the selected transport.
 
 The adapter keeps the `lo-legacy-webapp` identity. Your backend must

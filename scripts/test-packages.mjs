@@ -53,6 +53,12 @@ try {
     assert.ok(files.includes("package/LICENSE"));
     assert.ok(files.includes("package/dist/index.js"));
     assert.ok(files.includes("package/dist/index.d.ts"));
+    if (["lo", "bot-http-lo"].includes(folder))
+      assert.deepEqual(
+        files.filter((file) => file.startsWith("package/dist/")).sort(),
+        ["package/dist/index.d.ts", "package/dist/index.js"],
+        "native shims must not ship a second implementation",
+      );
     assert.ok(
       !files.some(
         (file) => file.includes("node_modules/") || file.includes("vendor/"),
