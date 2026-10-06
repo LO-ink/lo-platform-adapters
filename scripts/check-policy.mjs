@@ -37,6 +37,25 @@ for (const file of new Set(files)) {
     }
   }
 }
+if (process.env.GITHUB_EVENT_PATH) {
+  const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+  const head = event.pull_request?.head.sha ?? process.env.GITHUB_SHA;
+  const base = event.pull_request?.base.sha ?? event.before;
+  const validSha = (value) =>
+    typeof value === "string" &&
+    /^[a-f0-9]{40}$/.test(value) &&
+    !/^0+$/.test(value);
+  if (!validSha(head)) throw new Error("Missing CI commit identity");
+  const range = validSha(base) ? `${base}..${head}` : head;
+  const args = validSha(base)
+    ? ["log", "--format=%B", range]
+    : ["log", "-1", "--format=%B", range];
+  const messages = execFileSync("git", args, { encoding: "utf8" });
+  if (/[А-Яа-яЁё]/u.test(messages))
+    failures.push("New commit messages must be in English");
+  if (messages.includes(retired))
+    failures.push("New commit messages contain the retired repository URL");
+}
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exitCode = 1;
