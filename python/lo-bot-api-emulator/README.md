@@ -2,6 +2,8 @@
 
 A local request-contract fixture for bot migrations. It loads the same generated manifest as the LO HTTP transport and `lo-aiogram`; it rejects unknown fields, stubbed methods, invalid upload references, upload-only metadata on cached videos, and unsupported albums.
 
+Modeled edits and deletions require valid int64 targets; callback answers require a query ID. Keyboard objects must have a modeled shape. Album items resolve their own exact attachment references, including parts named `photo` or `document`. Malformed caption structures receive a JSON 400 refusal, and refused requests do not commit synthetic assets or advance message IDs. These checks validate request inputs; they do not prove a target exists or that a caller is authorized to modify it.
+
 ```sh
 pip install .
 lo-bot-api-emulator --port 8080

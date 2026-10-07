@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-telegram",
-  "version": "0.19.6",
+  "version": "0.19.7",
   "description": "Telegram Mini App host adapter for the LO SDK",
   "type": "module",
   "license": "MIT",
@@ -27,7 +27,7 @@
     "@lo-ink/miniapp-sdk": "^0.19.2 || ^0.20.0 || ^0.21.0 || ^0.22.0"
   },
   "dependencies": {
-    "@lo-ink/adapter-webapp-compat": "0.20.2"
+    "@lo-ink/adapter-webapp-compat": "0.20.3"
   },
   "engines": {
     "node": ">=20"

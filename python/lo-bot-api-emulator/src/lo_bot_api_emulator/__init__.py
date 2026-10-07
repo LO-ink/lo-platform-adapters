@@ -2,7 +2,10 @@
 
 import argparse
 import json
+import math
+import re
 from importlib.resources import files
+from urllib.parse import urlsplit
 
 from aiohttp import web
 
@@ -68,8 +71,160 @@ class LoBotApiEmulator:
     def decoded(value):
         return json.loads(value) if isinstance(value, str) else value
 
+    @staticmethod
+    def valid_keyboard_url(value, *, https_only=False):
+        if (
+            not isinstance(value, str)
+            or value.strip() != value
+            or any(ord(char) < 32 or ord(char) == 127 for char in value)
+            or re.search(r"%(?![0-9A-Fa-f]{2})", value)
+        ):
+            return False
+        try:
+            parsed = urlsplit(value)
+            _ = parsed.port
+            return (
+                parsed.username is None
+                and parsed.password is None
+                and bool(parsed.hostname)
+                and not any(char.isspace() for char in parsed.netloc)
+                and parsed.scheme in (("https",) if https_only else ("https", "http", "tg"))
+            )
+        except ValueError:
+            return False
+
+    @classmethod
+    def validate_markup(cls, markup, *, private_chat=True):
+        try:
+            if (
+                len(json.dumps(markup, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+                > 32768
+            ):
+                raise ApiRefusal("Bad Request: invalid reply_markup")
+        except UnicodeEncodeError:
+            raise ApiRefusal("Bad Request: invalid reply_markup") from None
+        if "inline_keyboard" in markup:
+            if set(markup) != {"inline_keyboard"}:
+                raise ApiRefusal("Bad Request: invalid reply_markup")
+            rows = markup["inline_keyboard"]
+            if not isinstance(rows, list):
+                raise ApiRefusal("Bad Request: invalid reply_markup")
+            count = 0
+            for row in rows:
+                if not isinstance(row, list) or not 1 <= len(row) <= 8:
+                    raise ApiRefusal("Bad Request: invalid reply_markup")
+                count += len(row)
+                if count > 100:
+                    raise ApiRefusal("Bad Request: invalid reply_markup")
+                for button in row:
+                    if (
+                        not isinstance(button, dict)
+                        or not isinstance(button.get("text"), str)
+                        or not button["text"]
+                        or len(button) != 2
+                    ):
+                        raise ApiRefusal("Bad Request: invalid reply_markup")
+                    action = next(key for key in button if key != "text")
+                    value = button[action]
+                    valid = False
+                    if action == "callback_data":
+                        valid = isinstance(value, str) and 1 <= len(value.encode("utf-8")) <= 64
+                    elif action == "url":
+                        valid = cls.valid_keyboard_url(value)
+                    elif action == "web_app":
+                        valid = (
+                            private_chat
+                            and isinstance(value, dict)
+                            and set(value) == {"url"}
+                            and cls.valid_keyboard_url(value["url"], https_only=True)
+                        )
+                    elif action == "copy_text":
+                        valid = (
+                            isinstance(value, dict)
+                            and set(value) == {"text"}
+                            and isinstance(value["text"], str)
+                            and 1 <= len(value["text"]) <= 256
+                        )
+                    elif action in ("switch_inline_query", "switch_inline_query_current_chat"):
+                        valid = isinstance(value, str)
+                    if not valid:
+                        raise ApiRefusal("Bad Request: invalid reply_markup")
+            return
+        if "remove_keyboard" in markup:
+            if (
+                markup["remove_keyboard"] is not True
+                or set(markup) - {"remove_keyboard", "selective"}
+                or markup.get("selective", False) is not False
+            ):
+                raise ApiRefusal("Bad Request: invalid reply_markup")
+            return
+        allowed = {
+            "keyboard",
+            "is_persistent",
+            "resize_keyboard",
+            "one_time_keyboard",
+            "input_field_placeholder",
+            "selective",
+        }
+        rows = markup.get("keyboard")
+        if (
+            set(markup) - allowed
+            or not isinstance(rows, list)
+            or not 1 <= len(rows) <= 12
+            or markup.get("selective", False) is not False
+            or any(
+                name in markup and not isinstance(markup[name], bool)
+                for name in ("is_persistent", "resize_keyboard", "one_time_keyboard")
+            )
+            or not isinstance(markup.get("input_field_placeholder", ""), str)
+            or len(markup.get("input_field_placeholder", "")) > 64
+        ):
+            raise ApiRefusal("Bad Request: invalid reply_markup")
+        count = 0
+        for row in rows:
+            if not isinstance(row, list) or not 1 <= len(row) <= 8:
+                raise ApiRefusal("Bad Request: invalid reply_markup")
+            for button in row:
+                count += 1
+                text = (
+                    button
+                    if isinstance(button, str)
+                    else (button.get("text") if isinstance(button, dict) else None)
+                )
+                if count > 100 or not isinstance(text, str) or not text.strip() or len(text) > 64:
+                    raise ApiRefusal("Bad Request: invalid reply_markup")
+                if isinstance(button, dict) and set(button) - {
+                    "text",
+                    "web_app",
+                    "request_contact",
+                    "request_location",
+                }:
+                    raise ApiRefusal("Bad Request: invalid reply_markup")
+                if isinstance(button, dict):
+                    for name in ("request_contact", "request_location"):
+                        if name in button and not isinstance(button[name], bool):
+                            raise ApiRefusal("Bad Request: invalid reply_markup")
+                    contact, location = (
+                        button.get("request_contact", False),
+                        button.get("request_location", False),
+                    )
+                    app = button.get("web_app")
+                    if (
+                        contact
+                        and location
+                        or (contact or location)
+                        and (app is not None or not private_chat)
+                    ):
+                        raise ApiRefusal("Bad Request: invalid reply_markup")
+                    if app is not None and (
+                        not isinstance(app, dict)
+                        or not cls.valid_keyboard_url(app.get("url"), https_only=True)
+                        or len(app["url"].encode("utf-8")) > 512
+                    ):
+                        raise ApiRefusal("Bad Request: invalid reply_markup")
+
     def source(self, kind, value, uploads, *, album=False):
-        if kind in uploads:
+        if not album and kind in uploads:
             return uploads[kind]
         if isinstance(value, str) and value.startswith("attach://"):
             if not album and not self.single_attach:
@@ -186,11 +341,16 @@ class LoBotApiEmulator:
                     "Bad Request: " + unknown[0] + " is not supported yet",
                     parameters={"reason": "unsupported_parameter", "parameter": unknown[0]},
                 )
-        if method.startswith("send") or method.startswith("editMessage"):
+        if (
+            method.startswith("send")
+            or method.startswith("editMessage")
+            or method == "deleteMessage"
+        ):
             chat = fields.get("chat_id")
             try:
                 if (
                     isinstance(chat, bool)
+                    or not isinstance(chat, (str, int))
                     or str(int(chat)) != str(chat)
                     or not -(2**63) <= int(chat) < 2**63
                     or int(chat) == 0
@@ -198,6 +358,16 @@ class LoBotApiEmulator:
                     raise ValueError()
             except (ValueError, TypeError):
                 raise ApiRefusal("Bad Request: chat not found") from None
+        if method.startswith("editMessage") or method == "deleteMessage":
+            message = fields.get("message_id")
+            if (
+                isinstance(message, bool)
+                or not isinstance(message, (str, int))
+                or not str(message).isascii()
+                or not str(message).isdigit()
+                or not 0 < int(message) < 2**63
+            ):
+                raise ApiRefusal("Bad Request: MESSAGE_ID_INVALID")
         markup = fields.get("reply_markup")
         if markup is not None:
             try:
@@ -208,6 +378,7 @@ class LoBotApiEmulator:
                 raise ApiRefusal("Bad Request: invalid reply_markup")
             if method != "sendMessage" and set(markup) != {"inline_keyboard"}:
                 raise ApiRefusal("Bad Request: only inline keyboard is supported")
+            self.validate_markup(markup, private_chat=int(fields["chat_id"]) > 0)
         if method == "getMe":
             return {
                 "id": 7,
@@ -240,12 +411,15 @@ class LoBotApiEmulator:
             if len(text.encode("utf-16-le")) // 2 > CONTRACT["limits"]["textUtf16"]:
                 raise ApiRefusal("Bad Request: message is too long")
             result = {
-                "message_id": self.next_id,
+                "message_id": int(fields["message_id"])
+                if method == "editMessageText"
+                else self.next_id,
                 "date": 1,
                 "chat": {"id": int(fields["chat_id"]), "type": "private"},
                 "text": text,
             }
-            self.next_id += 1
+            if method == "sendMessage":
+                self.next_id += 1
             return result
         if method == "sendMediaGroup":
             assert isinstance(media, list)
@@ -322,9 +496,16 @@ class LoBotApiEmulator:
             if kind == "audio" and isinstance(source, dict):
                 raise ApiRefusal("Bad Request: audio must be a file identifier")
             caption = fields.get("caption")
-            if (
-                caption is not None
-                and len(caption.encode("utf-16-le")) // 2 > CONTRACT["limits"]["captionUtf16"]
+            # The server stringifies JSON scalar values, but refuses structures.
+            if isinstance(caption, bool):
+                caption = "true" if caption else "false"
+            elif isinstance(caption, int):
+                caption = str(caption)
+            elif isinstance(caption, float) and math.isfinite(caption):
+                caption = str(caption)
+            if caption is not None and (
+                not isinstance(caption, str)
+                or len(caption.encode("utf-16-le")) // 2 > CONTRACT["limits"]["captionUtf16"]
             ):
                 raise ApiRefusal("Bad Request: caption is too long")
             return self.media_message(fields["chat_id"], kind, source, caption)
@@ -337,10 +518,10 @@ class LoBotApiEmulator:
             "deleteMessage",
             "answerCallbackQuery",
         ):
-            if method == "deleteMessage" and (
-                not str(fields.get("message_id", "")).isdigit() or "chat_id" not in fields
-            ):
-                raise ApiRefusal("Bad Request: message to delete not found")
+            if method == "answerCallbackQuery":
+                query = fields.get("callback_query_id")
+                if not isinstance(query, str) or not query:
+                    raise ApiRefusal("Bad Request: invalid callback answer")
             if method == "setMyCommands":
                 commands = self.decoded(fields.get("commands"))
                 if not isinstance(commands, list) or len(commands) > 100:

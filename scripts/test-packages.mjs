@@ -30,7 +30,16 @@ const packages = [
   "vk",
 ];
 try {
-  const archives = ["@lo-ink/miniapp-sdk@0.22.0", "@lo-ink/bot-sdk@0.5.0"];
+  const workspace = JSON.parse(
+    readFileSync(join(root, "package.json"), "utf8"),
+  );
+  const botTransport = JSON.parse(
+    readFileSync(join(root, "packages/bot-http-lo/package.json"), "utf8"),
+  );
+  const archives = [
+    `@lo-ink/miniapp-sdk@${workspace.devDependencies["@lo-ink/miniapp-sdk"]}`,
+    `@lo-ink/bot-sdk@${botTransport.devDependencies["@lo-ink/bot-sdk"]}`,
+  ];
   for (const folder of packages) {
     const manifest = JSON.parse(
       readFileSync(join(root, "packages", folder, "package.json")),

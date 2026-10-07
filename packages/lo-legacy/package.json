@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-lo-legacy",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Explicit migration adapter for older LO WebApp hosts",
   "type": "module",
   "license": "MIT",
@@ -27,7 +27,7 @@
     "@lo-ink/miniapp-sdk": "^0.22.0"
   },
   "dependencies": {
-    "@lo-ink/adapter-webapp-compat": "0.20.2"
+    "@lo-ink/adapter-webapp-compat": "0.20.3"
   },
   "engines": {
     "node": ">=20"

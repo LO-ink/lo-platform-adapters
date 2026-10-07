@@ -647,6 +647,76 @@ test("sensor start does not acquire a manager already running for another caller
   assert.equal(calls, 0);
 });
 
+test("concurrent clients cannot replace a pending sensor acquisition owner", async () => {
+  for (const [managerName, operation] of [
+    ["Accelerometer", "startAccelerometer"],
+    ["Gyroscope", "startGyroscope"],
+    ["DeviceOrientation", "startDeviceOrientation"],
+  ]) {
+    const callbacks = [];
+    let stops = 0;
+    const manager = {
+      isStarted: false,
+      start(_params, callback) {
+        callbacks.push(callback);
+      },
+      stop() {
+        stops++;
+        this.isStarted = false;
+      },
+    };
+    const adapter = createTelegramAdapter({
+      Telegram: {
+        WebApp: { initData: "signed", version: "8.0", [managerName]: manager },
+      },
+    });
+    const firstClient = createMiniAppClient(adapter);
+    const secondClient = createMiniAppClient(adapter);
+    const controller = new AbortController();
+    const first = firstClient.call(operation, {});
+    const second = secondClient.call(
+      operation,
+      {},
+      { signal: controller.signal },
+    );
+    controller.abort();
+    await assert.rejects(second, { code: "aborted" });
+    assert.equal(callbacks.length, 1);
+    manager.isStarted = true;
+    for (const callback of callbacks) callback(true);
+    assert.equal(await first, true);
+    assert.equal(manager.isStarted, true);
+    assert.equal(stops, 0);
+    firstClient.dispose();
+    secondClient.dispose();
+  }
+});
+
+test("failed and refused pending sensor starts release acquisition exclusivity", async () => {
+  let fail = true;
+  const manager = {
+    start(_params, done) {
+      if (fail) throw new Error("synthetic host failure");
+      done(false);
+    },
+    stop() {},
+  };
+  const client = createMiniAppClient(
+    createTelegramAdapter({
+      Telegram: {
+        WebApp: { initData: "signed", version: "8.0", Accelerometer: manager },
+      },
+    }),
+  );
+  await assert.rejects(client.call("startAccelerometer", {}), {
+    code: "failed",
+  });
+  fail = false;
+  assert.equal(await client.call("startAccelerometer", {}), false);
+  assert.equal(await client.call("startAccelerometer", {}), false);
+  client.dispose();
+});
+
 test("canonical swipe controls retain conservative compatibility gates", async () => {
   for (const version of ["7.6", "7.7"]) {
     const calls = [];

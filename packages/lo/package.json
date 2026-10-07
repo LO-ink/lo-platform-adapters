@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-lo",
-  "version": "0.24.0",
+  "version": "0.24.1",
   "description": "Compatibility exports for native LO transport in Mini App SDK",
   "type": "module",
   "license": "MIT",
@@ -25,7 +25,7 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "@lo-ink/miniapp-sdk": "^0.22.0"
+    "@lo-ink/miniapp-sdk": "^0.22.2"
   },
   "engines": {
     "node": ">=20"

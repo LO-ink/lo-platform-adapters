@@ -761,6 +761,7 @@ function booleanCallback(target: unknown, name: string, ...args: unknown[]) {
   return callback((done) => invoke(target, name, ...args, done), strictBoolean);
 }
 const sensorOwners = new WeakMap<object, symbol>();
+const pendingSensors = new WeakSet<object>();
 
 function sensorStart(
   target: unknown,
@@ -770,9 +771,14 @@ function sensorStart(
   if (!method(target, "start") || !method(target, "stop"))
     return unsupported("sensor start");
   // A caller must not acquire or later stop a sensor already owned elsewhere.
-  if (record(target)?.isStarted === true) return resolved(false);
+  if (
+    record(target)?.isStarted === true ||
+    pendingSensors.has(target as object)
+  )
+    return resolved(false);
   const owner = Symbol();
   sensorOwners.set(target as object, owner);
+  pendingSensors.add(target as object);
   let completed = false;
   let cancelled = false;
   let released = false;
@@ -808,6 +814,9 @@ function sensorStart(
     cleanup() {
       if (released) return;
       released = true;
+      // Release acquisition exclusivity while retaining the late-callback owner.
+      if (sensorOwners.get(target as object) === owner)
+        pendingSensors.delete(target as object);
       if (!completed || context.signal?.aborted) {
         cancelled = true;
         stopOwned();
