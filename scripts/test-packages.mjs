@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -59,6 +59,25 @@ try {
       `${manifest.name.replace("@", "").replace("/", "-")}-${manifest.version}.tgz`,
     );
     const files = run("tar", ["-tzf", archive]).split("\n");
+    for (const document of files.filter((file) => file.endsWith(".md"))) {
+      const markdown = run("tar", ["-xOzf", archive, document]);
+      for (const match of markdown.matchAll(/\]\(([^\s)]+)[^)]*\)/g)) {
+        const target = match[1].replace(/^<|>$/g, "").split(/[?#]/)[0];
+        if (
+          !target ||
+          /^[a-z][a-z\d+.-]*:/i.test(target) ||
+          target.startsWith("//")
+        )
+          continue;
+        const path = posix.normalize(
+          posix.join(posix.dirname(document), decodeURIComponent(target)),
+        );
+        assert.ok(
+          files.includes(path),
+          `${manifest.name}: ${document} links to an absent packaged file: ${target}`,
+        );
+      }
+    }
     assert.ok(files.includes("package/LICENSE"));
     assert.ok(files.includes("package/dist/index.js"));
     assert.ok(files.includes("package/dist/index.d.ts"));

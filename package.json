@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@lo-ink/miniapp-sdk": "0.22.2",
+    "@lo-ink/miniapp-sdk": "0.22.3",
     "c8": "12.0.0",
     "dependency-cruiser": "17.4.3",
     "eslint": "10.12.0",
