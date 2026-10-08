@@ -1,0 +1,14 @@
+{
+  "name": "lo-native-miniapp-consumer",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "@lo-ink/miniapp-sdk": "0.23.0"
+  }
+}

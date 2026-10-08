@@ -4,7 +4,7 @@ NPM := npm
 
 .PHONY: ci install format format-check lint check architecture test coverage security build package
 
-ci: build format-check lint check architecture coverage package policy security secrets
+ci: build format-check lint check architecture coverage package native-examples policy security secrets
 
 install:
 	$(NPM) ci --ignore-scripts
@@ -74,3 +74,9 @@ python-security:
 .PHONY: release-check
 release-check:
 	node scripts/check-release-ci.mjs
+
+.PHONY: native-examples
+native-examples:
+	$(NPM) ci --ignore-scripts --prefix compatibility/native-miniapp
+	$(NPM) test --prefix compatibility/native-miniapp
+	$(NPM) audit --audit-level=high --prefix compatibility/native-miniapp

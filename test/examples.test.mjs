@@ -73,7 +73,7 @@ function fixture(t, host = "lo-native") {
       writable: true,
     });
   symlinkSync(
-    join(root, "node_modules"),
+    process.env.LO_NATIVE_EXAMPLE_MODULES ?? join(root, "node_modules"),
     join(directory, "node_modules"),
     "dir",
   );
