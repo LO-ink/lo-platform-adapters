@@ -10,7 +10,7 @@ and [operations and recovery](../../docs/secretary.md).
 
 ## Run locally or on staging
 
-Use Node 22+ and the matching SDK/HTTP adapter. From this repository:
+Use Node 22+ and `@lo-ink/bot-sdk`. From this repository:
 
 ```sh
 npm ci
