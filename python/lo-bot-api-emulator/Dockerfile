@@ -4,4 +4,4 @@ COPY . .
 RUN pip install --no-cache-dir . && useradd --uid 10001 --create-home emulator
 USER emulator
 EXPOSE 8080
-CMD ["lo-bot-api-emulator"]
+CMD ["lo-bot-api-emulator", "--host", "0.0.0.0"]

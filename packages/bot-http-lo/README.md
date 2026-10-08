@@ -56,9 +56,9 @@ independent. `deleteAll` is explicit and requires its separate owner permission.
 See the [reference bot](../../examples/secretary/README.md) for durable polling,
 authenticated webhooks, owner/chat isolation, replay, revoke and opt-in. These are LO-native secretary operations.
 
-## Media, keyboards and errors (0.3.0)
+## Media, keyboards and errors
 
-Use bot-sdk 0.3.0. The transport builds exact Bot API JSON for `replyMarkup` and
+Use the current supported `@lo-ink/bot-sdk` peer version. The transport builds exact Bot API JSON for `replyMarkup` and
 `setChatMenuButton`, and multipart for uploaded photo/document/voice inputs. It
 lets fetch set the multipart boundary; `reply_markup` is a JSON string. Streams
 are bounded before any network request and cancelled with the request signal.

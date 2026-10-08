@@ -18,16 +18,32 @@ class ApiRefusal(Exception):
 
 
 class LoBotApiEmulator:
-    def __init__(self, *, video_uploads=True, single_attach=True, video_retry_count=0):
+    def __init__(
+        self,
+        *,
+        video_uploads=True,
+        single_attach=True,
+        video_retry_count=0,
+        request_bytes=512 * 1024 * 1024,
+        asset_bytes=512 * 1024 * 1024,
+        max_assets=100,
+        max_history=1000,
+        max_parts=32,
+    ):
+        for limit in (request_bytes, asset_bytes, max_assets, max_history, max_parts):
+            if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+                raise ValueError("Fixture resource limits must be positive integers")
         self.video_uploads = video_uploads
         self.single_attach = single_attach
         self.video_retry_count = video_retry_count
         self.requests = []
         self.assets = {}
         self.next_id = 1
+        self.request_bytes, self.asset_bytes = request_bytes, asset_bytes
+        self.max_assets, self.max_history, self.max_parts = max_assets, max_history, max_parts
 
     def app(self):
-        app = web.Application(client_max_size=512 * 1024 * 1024)
+        app = web.Application(client_max_size=self.request_bytes)
         app.router.add_post("/bot{token}/{method}", self.handle)
         app.router.add_get("/file/bot{token}/{path:.*}", self.download)
         return app
@@ -40,24 +56,35 @@ class LoBotApiEmulator:
 
     async def read_request(self, request):
         fields, uploads = {}, {}
+        if request.content_length is not None and request.content_length > request.client_max_size:
+            raise ApiRefusal("Request exceeds the fixture byte limit", 413)
         if request.content_type == "application/json":
             fields = await request.json()
             if not isinstance(fields, dict):
                 raise ApiRefusal("Bad Request: expected an object")
         elif request.content_type.startswith("multipart/"):
             reader = await request.multipart()
+            total, parts = 0, 0
             async for part in reader:
+                parts += 1
+                if parts > self.max_parts:
+                    raise ApiRefusal("Request exceeds the fixture part limit", 413)
                 if not part.name or part.name in fields or part.name in uploads:
                     raise ApiRefusal("Bad Request: duplicate parameter")
+                size, data = 0, bytearray()
+                while chunk := await part.read_chunk():
+                    size += len(chunk)
+                    total += len(chunk)
+                    if total > request.client_max_size:
+                        raise ApiRefusal("Request exceeds the fixture byte limit", 413)
+                    if part.filename is not None and size > CONTRACT["limits"]["fileBytes"]:
+                        raise ApiRefusal("Bad Request: file is too big")
+                    if part.filename is None and size > 64 * 1024:
+                        raise ApiRefusal("Request exceeds the fixture field limit", 413)
+                    data.extend(chunk)
                 if part.filename is None:
-                    fields[part.name] = await part.text()
+                    fields[part.name] = data.decode(part.get_charset(default="utf-8"))
                 else:
-                    size, data = 0, bytearray()
-                    while chunk := await part.read_chunk():
-                        size += len(chunk)
-                        if size > CONTRACT["limits"]["fileBytes"]:
-                            raise ApiRefusal("Bad Request: file is too big")
-                        data.extend(chunk)
                     uploads[part.name] = {
                         "filename": part.filename,
                         "data": bytes(data),
@@ -66,6 +93,16 @@ class LoBotApiEmulator:
         else:
             fields = dict(await request.post())
         return fields, uploads
+
+    def check_asset_capacity(self, sources):
+        additions = [source for source in sources if isinstance(source, dict)]
+        retained = sum(len(source.get("data", b"")) for source in self.assets.values())
+        incoming = sum(len(source.get("data", b"")) for source in additions)
+        if (
+            len(self.assets) + len(additions) > self.max_assets
+            or retained + incoming > self.asset_bytes
+        ):
+            raise ApiRefusal("Fixture asset capacity reached; start a fresh fixture", 507)
 
     @staticmethod
     def decoded(value):
@@ -241,6 +278,7 @@ class LoBotApiEmulator:
         if isinstance(source, dict):
             if source["size"] > CONTRACT["limits"]["photoBytes"] and kind == "photo":
                 raise ApiRefusal("Bad Request: file is too big")
+            self.check_asset_capacity([source])
             reference = f"fixture-{kind}-{self.next_id}"
             self.assets[reference] = source
         else:
@@ -448,6 +486,7 @@ class LoBotApiEmulator:
                 ):
                     raise ApiRefusal("Bad Request: file is too big")
             group_id = self.next_id
+            self.check_asset_capacity(sources)
             results = [
                 self.media_message(
                     fields["chat_id"], item["type"], source, item.get("caption"), group_id
@@ -541,22 +580,31 @@ class LoBotApiEmulator:
             body = {"ok": False, "error_code": status, "description": error.description}
             if error.parameters:
                 body["parameters"] = error.parameters
+        except web.HTTPRequestEntityTooLarge:
+            status = 413
+            body = {
+                "ok": False,
+                "error_code": status,
+                "description": "Request exceeds the fixture byte limit",
+            }
         except (ValueError, TypeError, KeyError, UnicodeError):
             status = 400
             body = {"ok": False, "error_code": 400, "description": "Bad Request: malformed request"}
         self.requests.append(
             {"method": method, "fields": sorted(fields), "files": sorted(uploads), "status": status}
         )
+        del self.requests[: -self.max_history]
         return web.json_response(body, status=status)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--disable-video-uploads", action="store_true")
     parser.add_argument("--legacy-single-attach", action="store_true")
     args = parser.parse_args()
     emulator = LoBotApiEmulator(
         video_uploads=not args.disable_video_uploads, single_attach=not args.legacy_single_attach
     )
-    web.run_app(emulator.app(), host="0.0.0.0", port=args.port)
+    web.run_app(emulator.app(), host=args.host, port=args.port)

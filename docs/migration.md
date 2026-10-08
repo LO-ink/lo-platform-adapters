@@ -2,13 +2,13 @@
 
 | Application                               | Integration                                               |
 | ----------------------------------------- | --------------------------------------------------------- |
-| New LO mini-app                           | Core SDK and native LO adapter                            |
+| New LO mini-app                           | Mini App SDK `createLoClient`; no adapter package         |
 | LO mini-app on a WebApp host              | Explicit legacy LO adapter                                |
 | LO SDK application running in Telegram    | Telegram host adapter                                     |
 | Telegram WebApp application running in LO | Inbound Telegram-to-LO bridge                             |
 | Existing aiogram bot running in LO        | LO HTTP session; handle unsupported operations explicitly |
 
-Choose the provider in the application's composition root. Components receive a client with negotiated capabilities. The native adapter never switches to a compatibility transport after an unavailable or failed operation.
+New LO integrations use the [Mini App SDK](https://github.com/LO-ink/lo-miniapp-sdk) directly. The other rows describe existing integrations maintained outside the native quickstart. Choose their provider explicitly in the application's composition root. Components receive a client with negotiated capabilities. Native requests never switch to a different transport after an unavailable or failed operation.
 
 Install published packages from the lockfile, compile actual application call sites, and test packed artifacts through public exports. Verify signed launch data on the backend using the actual provider's key; preserve the signed bytes.
 

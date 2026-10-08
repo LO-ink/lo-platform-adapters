@@ -40,7 +40,9 @@ jobs:
         with:
           python-version: "3.13"
       - id: releases
-        run: python scripts/plan_python_release.py
+        run: |
+          python -m pip install build==1.6.1
+          python scripts/plan_python_release.py
   build:
     needs: plan
     if: needs.plan.outputs.has_releases == 'true'

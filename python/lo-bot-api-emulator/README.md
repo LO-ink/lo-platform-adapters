@@ -10,14 +10,14 @@ lo-bot-api-emulator --port 8080
 lo-bot-api-emulator --disable-video-uploads --legacy-single-attach
 ```
 
-Use synthetic tokens and media fixtures. The emulator does not authenticate credentials, transcode video, validate media contents or reproduce storage, permission checks and production rate limits. Unmodeled implemented methods explicitly return 501; they never receive a generic successful response. Bind or expose the fixture only in a test environment.
+Use synthetic tokens and media fixtures. The emulator does not authenticate credentials, transcode video, validate media contents or reproduce storage, permission checks and production rate limits. Unmodeled implemented methods explicitly return 501; they never receive a generic successful response. The CLI binds to `127.0.0.1` by default. Use `--host` only for an explicitly isolated test network; the container command selects `0.0.0.0` inside its network while the example publishes only a loopback host port.
 
 ```sh
 docker build -t lo-bot-api-emulator .
 docker run --rm -p 127.0.0.1:8080:8080 lo-bot-api-emulator
 ```
 
-The Python API exposes `LoBotApiEmulator.requests`: method, field names, file-part names and status. It retains no tokens or request text. The synthetic asset store is ephemeral. `video_retry_count` provides deterministic preparation refusals for retry tests.
+The Python API exposes `LoBotApiEmulator.requests`: the last 1000 method, field-name, file-part-name and status records. It retains no tokens or request text. Request content is limited to 512 MiB and 32 multipart parts, including aggregate file and text payload bytes; individual text fields are limited to 64 KiB. The synthetic asset store retains at most 100 assets and 512 MiB; new uploads receive a JSON 507 refusal at capacity, preserving existing assets and message IDs. Set `request_bytes`, `asset_bytes`, `max_assets`, `max_history` and `max_parts` on `LoBotApiEmulator` for smaller test budgets. These are fixture limits, not production authorization or a whole-process memory guarantee. `video_retry_count` provides deterministic preparation refusals for retry tests.
 
 Regenerate the contract from a checked-out server revision using the repository's `scripts/generate-bot-contract.mjs`. `--check` compares all packaged copies without modifying them. CI executes unchanged aiogram handlers and Telegraf/grammY clients against this fixture, including a negative test that removes compatibility middleware.
 
