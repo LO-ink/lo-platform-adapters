@@ -297,6 +297,6 @@ class EmulatorPolicy(unittest.TestCase):
             patch("lo_bot_api_emulator.web.run_app") as run,
         ):
             main()
-            self.assertEqual(run.call_args.kwargs, {"host": "0.0.0.0", "port": 9011})
+            self.assertEqual(run.call_args.kwargs, {"host": "127.0.0.1", "port": 9011})
             application = run.call_args.args[0]
             self.assertGreater(len(list(application.router.routes())), 0)

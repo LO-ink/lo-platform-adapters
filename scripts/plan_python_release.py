@@ -4,12 +4,103 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
+import tarfile
+import tempfile
 import time
 import tomllib
+import zipfile
+from io import BytesIO
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import urlopen
+from urllib.parse import unquote, urlsplit
+from urllib.request import HTTPRedirectHandler, build_opener
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+urlopen = build_opener(NoRedirect()).open
+
+MAX_DISTRIBUTION_BYTES = 128 * 1024 * 1024
+MAX_UNPACKED_BYTES = 512 * 1024 * 1024
+
+
+def distribution_bytes(metadata, filename, request=urlopen):
+    url = metadata.get("url", "")
+    parsed = urlsplit(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "files.pythonhosted.org"
+        or parsed.query
+        or parsed.fragment
+        or unquote(parsed.path.rsplit("/", 1)[-1]) != filename
+    ):
+        raise ValueError("Unexpected public distribution URL")
+    chunks, size = [], 0
+    with request(url, timeout=30) as response:
+        if hasattr(response, "geturl") and response.geturl() != url:
+            raise ValueError("Public distribution redirected unexpectedly")
+        while chunk := response.read(64 * 1024):
+            size += len(chunk)
+            if size > MAX_DISTRIBUTION_BYTES:
+                raise ValueError("Public distribution exceeds the download limit")
+            chunks.append(chunk)
+    data = b"".join(chunks)
+    if hashlib.sha256(data).hexdigest() != metadata["digests"]["sha256"]:
+        raise ValueError("Public PyPI bytes differ from registry metadata")
+    return data
+
+
+def packaged_files(data, filename):
+    entries = {}
+    size = 0
+    if filename.endswith(".whl"):
+        with zipfile.ZipFile(BytesIO(data)) as archive:
+            for count, entry in enumerate(archive.infolist(), 1):
+                if count > 10000:
+                    raise ValueError("Distribution exceeds the inspection limit")
+                if entry.is_dir():
+                    continue
+                size += entry.file_size
+                if size > MAX_UNPACKED_BYTES or len(entries) >= 10000:
+                    raise ValueError("Distribution exceeds the inspection limit")
+                if entry.filename in entries:
+                    raise ValueError("Distribution contains duplicate files")
+                entries[entry.filename] = (archive.read(entry), (entry.external_attr >> 16) & 0o777)
+    else:
+        with tarfile.open(fileobj=BytesIO(data), mode="r:gz") as archive:
+            for count, entry in enumerate(archive, 1):
+                if count > 10000:
+                    raise ValueError("Distribution exceeds the inspection limit")
+                if entry.isdir():
+                    continue
+                if not entry.isfile():
+                    raise ValueError("Distribution contains a non-file entry")
+                size += entry.size
+                if size > MAX_UNPACKED_BYTES or len(entries) >= 10000:
+                    raise ValueError("Distribution exceeds the inspection limit")
+                name = entry.name.partition("/")[2]
+                if not name or name in entries:
+                    raise ValueError("Distribution contains invalid or duplicate files")
+                stream = archive.extractfile(entry)
+                if stream is None:
+                    raise ValueError("Distribution file cannot be read")
+                entries[name] = (stream.read(), entry.mode & 0o777)
+    if not entries:
+        raise ValueError("Distribution contains no files")
+    return entries
+
+
+def build_distributions(root, project, directory):
+    subprocess.run(
+        [sys.executable, "-m", "build", "--outdir", str(directory), str(root / "python" / project)],
+        check=True,
+        stdout=sys.stderr,
+    )
 
 
 def published_release(project, version, request=urlopen):
@@ -45,7 +136,7 @@ def project_version(root, project):
     return version
 
 
-def release_matrix(root, request=urlopen):
+def release_matrix(root, request=urlopen, build=build_distributions):
     pending = []
     for project, environment in [
         ("lo-aiogram", "pypi"),
@@ -66,6 +157,23 @@ def release_matrix(root, request=urlopen):
                 f"Incomplete PyPI release {project} {version}; rerun the original failed "
                 "publish job to reuse its verified distributions"
             )
+        else:
+            if any(metadata.get("yanked") for metadata in published.values()):
+                raise ValueError("Cannot accept a yanked distribution")
+            with tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                build(root, project, directory)
+                files = {path.name: path for path in directory.iterdir() if path.is_file()}
+                if set(files) != expected_files(project, version):
+                    raise ValueError("Built distributions do not match the release project")
+                for filename, metadata in published.items():
+                    public = distribution_bytes(metadata, filename, request)
+                    if packaged_files(public, filename) != packaged_files(
+                        files[filename].read_bytes(), filename
+                    ):
+                        raise ValueError(
+                            f"Current source differs from PyPI {project} {version}; bump its version"
+                        )
     return {"include": pending}
 
 
@@ -82,6 +190,8 @@ def prepare_upload(root, project, directory, request=urlopen, upload_directory=N
             raise ValueError("Cannot resume a yanked distribution")
         digest = hashlib.sha256(files[filename].read_bytes()).hexdigest()
         if metadata["digests"]["sha256"] != digest:
+            raise ValueError("Existing PyPI bytes differ from the checked release artifact")
+        if hashlib.sha256(distribution_bytes(metadata, filename, request)).hexdigest() != digest:
             raise ValueError("Existing PyPI bytes differ from the checked release artifact")
     missing = set(files) - set(published)
     upload_directory = upload_directory or directory.parent / "upload-dist"
@@ -105,6 +215,14 @@ def verify_upload(root, project, directory, request=urlopen):
             or metadata["digests"]["sha256"]
             != hashlib.sha256(files[filename].read_bytes()).hexdigest()
         ):
+            raise ValueError("Public PyPI bytes differ from the checked release artifact")
+        try:
+            public = distribution_bytes(metadata, filename, request)
+        except HTTPError as error:
+            if error.code in {404, 408, 429, 500, 502, 503, 504}:
+                return False
+            raise
+        if public != files[filename].read_bytes():
             raise ValueError("Public PyPI bytes differ from the checked release artifact")
     return True
 

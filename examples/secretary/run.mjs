@@ -23,7 +23,8 @@ function config() {
           value.connectionId,
         ) ||
         typeof value.chatId !== "string" ||
-        !/^[1-9][0-9]{0,14}$/.test(value.chatId),
+        !/^[1-9][0-9]{0,18}$/.test(value.chatId) ||
+        BigInt(value.chatId) > 9223372036854775807n,
     )
   )
     throw new Error("Invalid explicit per-chat opt-in.");
