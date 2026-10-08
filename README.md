@@ -58,6 +58,15 @@ The [contract](contracts/lo-bot-api.json) records verified source provenance fro
 
 ## Quality checks
 
+The current native examples are checked separately against the published Mini App
+SDK 0.23 with `make native-examples` (also part of `make ci`). This private
+consumer uses Node.js 22.13 or newer and executes the actual vanilla example's
+native lifecycle tests. The root workspace's Mini SDK 0.22 pin belongs to the
+separate historical provider and migration package contracts; it is not the
+recommended dependency for new native applications. Those existing package
+versions and peer ranges remain unchanged, and native calls never fall back to
+another provider.
+
 Run `make install` and `make ci` with Node.js 22.13 or newer. The same targets run
 in GitHub Actions. CI checks formatting, ESLint (including typed promises),
 TypeScript, dependency cycles and package boundaries, tests, published package
