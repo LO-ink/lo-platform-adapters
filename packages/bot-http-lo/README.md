@@ -53,7 +53,7 @@ credential generation and owner identity are derived by the server, never from
 caller-provided grant fields. Receiving, reading, sending and deleting remain
 independent. `deleteAll` is explicit and requires its separate owner permission.
 
-See the [reference bot](../../examples/secretary/README.md) for durable polling,
+See the [reference bot](https://github.com/LO-ink/lo-platform-adapters/tree/main/examples/secretary#readme) for durable polling,
 authenticated webhooks, owner/chat isolation, replay, revoke and opt-in. These are LO-native secretary operations.
 
 ## Media, keyboards and errors

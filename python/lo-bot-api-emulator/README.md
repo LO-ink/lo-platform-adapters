@@ -5,14 +5,18 @@ A local request-contract fixture for bot migrations. It loads the same generated
 Modeled edits and deletions require valid int64 targets; callback answers require a query ID. Keyboard objects must have a modeled shape. Album items resolve their own exact attachment references, including parts named `photo` or `document`. Malformed caption structures receive a JSON 400 refusal, and refused requests do not commit synthetic assets or advance message IDs. These checks validate request inputs; they do not prove a target exists or that a caller is authorized to modify it.
 
 ```sh
-pip install .
+pip install lo-bot-api-emulator
 lo-bot-api-emulator --port 8080
 lo-bot-api-emulator --disable-video-uploads --legacy-single-attach
 ```
 
 Use synthetic tokens and media fixtures. The emulator does not authenticate credentials, transcode video, validate media contents or reproduce storage, permission checks and production rate limits. Unmodeled implemented methods explicitly return 501; they never receive a generic successful response. The CLI binds to `127.0.0.1` by default. Use `--host` only for an explicitly isolated test network; the container command selects `0.0.0.0` inside its network while the example publishes only a loopback host port.
 
+The Dockerfile belongs to the [source repository](https://github.com/LO-ink/lo-platform-adapters/tree/main/python/lo-bot-api-emulator); it is not included in installed wheels or source distributions. To build locally, clone the repository and run Docker from the emulator source directory:
+
 ```sh
+git clone https://github.com/LO-ink/lo-platform-adapters.git
+cd lo-platform-adapters/python/lo-bot-api-emulator
 docker build -t lo-bot-api-emulator .
 docker run --rm -p 127.0.0.1:8080:8080 lo-bot-api-emulator
 ```
