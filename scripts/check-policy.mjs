@@ -24,6 +24,10 @@ for (const file of new Set(files)) {
   if (bytes.includes(0)) continue;
   const value = bytes.toString("utf8");
   if (value.includes(retired)) failures.push(`${file}: retired repository URL`);
+  if (/\.(?:md|markdown)$/i.test(file) && /\bgit\.lo\.ink\b/i.test(value))
+    failures.push(
+      `${file}: public documentation contains an internal repository address`,
+    );
   if (
     (/(^|\/)readme[^/]*\.md$/i.test(file) || /^docs\/.*\.md$/.test(file)) &&
     /[А-Яа-яЁё]/u.test(value)

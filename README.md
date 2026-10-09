@@ -54,7 +54,7 @@ Compatibility guides live here: [bot migration](docs/telegram-bots.md), [mini-ap
 
 Python integrations: [lo-aiogram](python/lo-aiogram/README.md) and the [LO Bot API emulator](python/lo-bot-api-emulator/README.md). Actual aiogram handlers and pinned Telegraf/grammY clients run against the generated strict contract; unsupported requests must fail explicitly. Unmodeled methods return 501. The fixture does not validate real media content or reproduce authentication, storage, transcoding and production permissions.
 
-The [contract](contracts/lo-bot-api.json) records verified source provenance from [LO/messenger 285b2f31](https://git.lo.ink/LO/messenger/commit/285b2f31f809c55f22ad2cb74f6c4e035daa9926). Unsaved server changes require explicit `--allow-working-tree` and remain labeled unreleased. The server owns generation and its standard Go test checks source drift.
+The [contract](contracts/lo-bot-api.json) defines the request and response shapes verified by the migration suites. Unsaved server changes require explicit `--allow-working-tree` and remain labeled unreleased. The server owns generation and its standard Go test checks source drift.
 
 ## Quality checks
 
@@ -63,9 +63,9 @@ SDK 0.23 with `make native-examples` (also part of `make ci`). This private
 consumer uses Node.js 22.13 or newer and executes the actual vanilla example's
 native lifecycle tests. The root workspace's Mini SDK 0.22 pin belongs to the
 separate historical provider and migration package contracts; it is not the
-recommended dependency for new native applications. Those existing package
-versions and peer ranges remain unchanged, and native calls never fall back to
-another provider.
+recommended dependency for new native applications. The native re-export and explicit LO WebApp migration packages also support
+SDK 0.23. Their packed consumers are checked against SDK 0.22 and 0.23. Native
+calls never fall back to another provider.
 
 Run `make install` and `make ci` with Node.js 22.13 or newer. The same targets run
 in GitHub Actions. CI checks formatting, ESLint (including typed promises),

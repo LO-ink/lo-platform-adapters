@@ -9,6 +9,31 @@ function client(webApp) {
   );
 }
 
+test("LO WebApp downloads preserve denial and reject malformed host results", async () => {
+  let result = false;
+  const received = [];
+  const sdk = client({
+    capabilities: ["downloadFile"],
+    downloadFile(params, done) {
+      received.push(params);
+      done(result);
+    },
+  });
+  const input = {
+    url: "https://example.com/document.pdf",
+    fileName: "document.pdf",
+  };
+  assert.equal(await sdk.call("downloadFile", input), false);
+  assert.deepEqual(received, [{ url: input.url, file_name: input.fileName }]);
+  result = true;
+  assert.equal(await sdk.call("downloadFile", input), true);
+  result = "accepted";
+  await assert.rejects(sdk.call("downloadFile", input), {
+    code: "invalid-response",
+  });
+  sdk.dispose();
+});
+
 test("WebApp frame commands preserve the host receiver and never change transport on failure", async () => {
   const calls = [];
   const host = {
