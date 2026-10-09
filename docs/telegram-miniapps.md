@@ -10,16 +10,21 @@ Telegram script there and install the bridge before importing existing code:
 ```ts
 import { installTelegramCompatibility } from "@lo-ink/adapter-telegram-to-lo";
 
-const bridge = installTelegramCompatibility();
+const bridge = installTelegramCompatibility({
+  onError: ({ operation, error }) =>
+    showIntegrationError(operation, error.code),
+});
 if (!bridge) throw new Error("Open this entrypoint inside LO");
 await import("./existing-app.js");
 addEventListener("pagehide", () => bridge.dispose(), { once: true });
 ```
 
-The LO host must already expose its supported WebApp compatibility surface.
-The bridge exposes that exact object under the existing API name. It does not
-invent missing methods, change its version, modify launch bytes or authenticate
-the user. Existing Telegram globals are never overwritten.
+The host must provide the canonical native port without automatically injecting
+Telegram globals. Version 0.2 requires Mini App SDK ^0.23.0 and implements an
+explicit subset; it never reads LO.WebApp. See the [breaking migration and supported
+surface](../packages/telegram-to-lo/README.md). Audit unsupported manager APIs and
+version/state queries before migration. Native errors remain failures; existing
+Telegram globals are never overwritten.
 
 **Change backend verification for the LO entrypoint.** The launch assertion is
 issued by LO even if application code reads `Telegram.WebApp.initData`. Validate

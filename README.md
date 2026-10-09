@@ -10,7 +10,7 @@ script loaders and compatibility wire shapes remain in explicit integrations.
 | ------------------------------------ | --------------------------------------------------------------------- |
 | `@lo-ink/adapter-lo`                 | Compatibility re-export of native Mini App SDK transport              |
 | `@lo-ink/adapter-telegram`           | LO SDK → Telegram host, with an explicit bounded script loader        |
-| `@lo-ink/adapter-telegram-to-lo` 0.1 | Existing Telegram WebApp code → LO-provided compatibility surface     |
+| `@lo-ink/adapter-telegram-to-lo` 0.2 | Explicit supported WebApp facade → canonical native LO client         |
 | `@lo-ink/adapter-webapp-compat`      | Shared translation implementation used only by compatibility adapters |
 | `@lo-ink/adapter-vk`                 | LO SDK → official VK Bridge; limited documented capabilities          |
 | `@lo-ink/bot-http-lo`                | Compatibility re-export of native Bot SDK HTTP transport              |
@@ -33,8 +33,7 @@ npm run test:package
 Tests cover native protocol validation, document/session isolation, cancellation,
 timeouts, late results, permission denial, events and compatibility leases.
 Packed-package tests install the native SDK and LO adapter **alone**, proving
-that the native application needs no compatibility package. A second consumer
-checks all adapters through their public exports and TypeScript declarations.
+that the native application needs no compatibility package. Separate consumers check the inbound SDK 0.23 facade and the other adapters through their public exports and TypeScript declarations.
 
 [Choosing an integration](docs/migration.md) describes explicit provider selection.
 

@@ -1,15 +1,20 @@
-import { installTelegramCompatibility } from "@lo-ink/adapter-telegram-to-lo";
+import {
+  installTelegramCompatibility,
+  type Failure,
+} from "@lo-ink/adapter-telegram-to-lo";
 
-/** Run after the LO host is initialized and before the legacy entrypoint loads. */
+/** Use a canonical-only host, before loading the audited foreign API entrypoint. */
 export async function startExistingApplication(
   loadApplication: () => Promise<unknown>,
+  onError: (failure: Failure) => void,
+  signal?: AbortSignal,
 ) {
-  const lease = installTelegramCompatibility();
-  if (!lease) throw new Error("LO compatibility host is unavailable");
+  const lease = installTelegramCompatibility({ onError, signal });
+  if (!lease) throw new Error("Canonical LO host is unavailable");
   try {
     await loadApplication();
   } catch (error) {
-    lease.dispose();
+    await lease.dispose();
     throw error;
   }
   return () => lease.dispose();
