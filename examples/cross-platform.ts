@@ -2,7 +2,6 @@ import {
   createMiniAppClient,
   createNativeAdapter as createLoAdapter,
 } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLegacyLoAdapter } from "@lo-ink/adapter-lo-legacy";
 import { loadAdapter as loadTelegramAdapter } from "@lo-ink/adapter-telegram";
 import { startExample } from "./lifecycle.js";
 
@@ -12,14 +11,10 @@ async function selectAdapter(host: string | undefined) {
   switch (host) {
     case "lo-native":
       return createLoAdapter();
-    case "lo-legacy":
-      return createLegacyLoAdapter();
     case "telegram":
       return loadTelegramAdapter();
     default:
-      throw new Error(
-        "Configure data-miniapp-host: lo-native, lo-legacy or telegram",
-      );
+      throw new Error("Configure data-miniapp-host: lo-native or telegram");
   }
 }
 await startExample(async () => {

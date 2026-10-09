@@ -160,26 +160,13 @@ function nativePort(
 for (const [example, host] of [
   ["vanilla", "lo-native"],
   ["cross-platform", "lo-native"],
-  ["cross-platform", "lo-legacy"],
 ]) {
   test(`${example}/${host} starts on a partial host without another provider`, async (t) => {
     const f = fixture(t, host),
       native = nativePort("partial", ["ready"]);
-    let legacyReady = 0;
-    globalThis.LO =
-      host === "lo-native"
-        ? { MiniAppNative: native.port }
-        : {
-            WebApp: {
-              initData: "synthetic-signed-launch",
-              capabilities: ["ready"],
-              ready() {
-                legacyReady++;
-              },
-            },
-          };
+    globalThis.LO = { MiniAppNative: native.port };
     await f.load(example);
-    assert.equal(host === "lo-native" ? native.calls.length : legacyReady, 1);
+    assert.equal(native.calls.length, 1);
     assert.equal(f.element.dataset.miniappState, "ready");
     assert.equal(f.button.count("click"), 1);
     await f.lifecycle.fire("pagehide", { persisted: false });
@@ -329,4 +316,20 @@ test("a delayed external provider cannot bind or call a stale session after hide
   assert.equal(f.element.dataset.miniappState, "ready");
   assert.equal(f.media.count("change"), 1);
   assert.equal(f.button.count("click"), 1);
+});
+
+test("cross-platform rejects a retired LO host selector without reading its bridge", async (t) => {
+  const f = fixture(t, "lo-legacy");
+  globalThis.LO = {
+    get WebApp() {
+      throw new Error("Retired transport accessed");
+    },
+  };
+  await assert.rejects(
+    f.load("cross-platform"),
+    /Configure data-miniapp-host: lo-native or telegram/,
+  );
+  assert.equal(f.element.dataset.miniappState, "unavailable");
+  await f.button.fire("click");
+  assert.equal(f.element.dataset.writeAccess, undefined);
 });

@@ -99,9 +99,7 @@ export default tseslint.config(
     },
   },
   {
-    files: [
-      "packages/{compat,lo,lo-legacy,telegram,telegram-to-lo,vk}/src/**/*.ts",
-    ],
+    files: ["packages/{compat,lo,telegram,telegram-to-lo,vk}/src/**/*.ts"],
     rules: {
       "no-restricted-globals": [
         "error",

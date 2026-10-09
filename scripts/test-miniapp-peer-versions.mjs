@@ -17,7 +17,7 @@ const run = (args, cwd = root) =>
   execFileSync("npm", args, { cwd, stdio: "inherit" });
 try {
   const archives = [];
-  for (const folder of ["compat", "lo", "lo-legacy"]) {
+  for (const folder of ["compat", "lo"]) {
     const manifest = JSON.parse(
       readFileSync(join(root, "packages", folder, "package.json")),
     );
@@ -36,7 +36,7 @@ try {
       ),
     );
   }
-  for (const version of ["0.22.3", "0.23.0"]) {
+  for (const version of ["0.22.2", "0.22.3", "0.23.0"]) {
     const consumer = join(temp, version);
     mkdirSync(consumer);
     writeFileSync(
@@ -62,11 +62,6 @@ try {
     );
     assert.equal(installed.version, version);
     run(["ls", "--all"], consumer);
-    const legacyManifest = JSON.parse(
-      readFileSync(
-        join(consumer, "node_modules/@lo-ink/adapter-lo-legacy/package.json"),
-      ),
-    );
     const compatManifest = JSON.parse(
       readFileSync(
         join(
@@ -75,33 +70,24 @@ try {
         ),
       ),
     );
-    assert.equal(
-      legacyManifest.dependencies["@lo-ink/adapter-webapp-compat"],
-      "0.20.4",
-    );
-    assert.equal(compatManifest.version, "0.20.4");
+    assert.equal(compatManifest.version, "0.20.5");
     const suite = readFileSync(
       join(root, "packages/lo/test/native.test.mjs"),
       "utf8",
-    )
-      .replaceAll('"../dist/index.js"', '"@lo-ink/adapter-lo"')
-      .replaceAll(
-        '"../../lo-legacy/dist/index.js"',
-        '"@lo-ink/adapter-lo-legacy"',
-      );
+    ).replaceAll('"../dist/index.js"', '"@lo-ink/adapter-lo"');
     writeFileSync(join(consumer, "native.test.mjs"), suite);
     execFileSync(process.execPath, ["--test", "native.test.mjs"], {
       cwd: consumer,
       stdio: "inherit",
     });
-    const legacySuite = readFileSync(
+    const wireSuite = readFileSync(
       join(root, "test/webapp-contract.test.mjs"),
       "utf8",
     ).replaceAll(
-      '"../packages/lo-legacy/dist/index.js"',
-      '"@lo-ink/adapter-lo-legacy"',
+      '"../packages/compat/dist/index.js"',
+      '"@lo-ink/adapter-webapp-compat"',
     );
-    writeFileSync(join(consumer, "webapp-contract.test.mjs"), legacySuite);
+    writeFileSync(join(consumer, "webapp-contract.test.mjs"), wireSuite);
     execFileSync(process.execPath, ["--test", "webapp-contract.test.mjs"], {
       cwd: consumer,
       stdio: "inherit",
@@ -111,10 +97,7 @@ try {
       `
 import { createMiniAppClient, createNativeAdapter } from '@lo-ink/miniapp-sdk';
 import { createAdapter } from '@lo-ink/adapter-lo';
-import { createAdapter as createLegacy } from '@lo-ink/adapter-lo-legacy';
 const native: typeof createNativeAdapter = createAdapter;
-const legacy = createLegacy();
-if (legacy) createMiniAppClient(legacy);
 void native;
 `,
     );
