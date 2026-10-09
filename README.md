@@ -60,11 +60,19 @@ The [contract](contracts/lo-bot-api.json) defines the request and response shape
 The current native examples are checked separately against the published Mini App
 SDK 0.23 with `make native-examples` (also part of `make ci`). This private
 consumer uses Node.js 22.13 or newer and executes the actual vanilla example's
-native lifecycle tests. The root workspace's Mini SDK 0.22 pin belongs to the
-separate historical provider and migration package contracts; it is not the
-recommended dependency for new native applications. The native re-export supports SDK 0.23. Its packed consumers are checked
+native lifecycle tests. The root workspace's Mini SDK 0.22 pin is one development graph; external
+adapters are also checked as isolated packed consumers against their supported
+SDK versions. New native applications use SDK 0.23 directly. The native re-export supports SDK 0.23. Its packed consumers are checked
 against SDK 0.22.2, 0.22.3 and 0.23.0. Native
 calls never fall back to another provider.
+
+Telegram and VK external adapters support SDK 0.23 as well as their existing
+0.19–0.22 ranges. The package gate runs strict installs, provider protocol tests,
+SSR imports and NodeNext/Bundler type checks at each published minor floor:
+Telegram 0.19.2, VK 0.19.0, and both 0.20.1, 0.21.0, 0.22.0 and 0.23.0.
+Telegram uses shared translator 0.20.5; VK uses official Bridge 3.0.2. This tests
+the adapter contracts with controlled hosts, not live provider authentication or
+device behavior.
 
 Run `make install` and `make ci` with Node.js 22.13 or newer. The same targets run
 in GitHub Actions. CI checks formatting, ESLint (including typed promises),
