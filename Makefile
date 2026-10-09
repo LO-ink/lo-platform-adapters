@@ -29,6 +29,7 @@ build:
 package:
 	npm run test:package
 	node scripts/test-miniapp-peer-versions.mjs
+	node scripts/test-external-peer-versions.mjs
 
 policy:
 	$(NPM) run policy
