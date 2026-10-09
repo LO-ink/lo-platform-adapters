@@ -1,7 +1,8 @@
 # `@lo-ink/adapter-lo`
 
 Compatibility exports for the native transport owned by `@lo-ink/miniapp-sdk`.
-Version 0.24 requires SDK 0.22. New applications use one package:
+Version 0.24.2 supports SDK 0.22.2 and newer 0.22 releases, and SDK 0.23.
+This package preserves existing imports; new applications use one package:
 
 ```ts
 import { createLoClient } from "@lo-ink/miniapp-sdk";

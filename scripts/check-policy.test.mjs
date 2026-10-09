@@ -26,6 +26,22 @@ function check(file, content) {
   }
 }
 
+test("public documentation rejects internal repository references", () => {
+  for (const file of ["README.md", "README.MD", "guide.markdown"]) {
+    const result = check(
+      file,
+      "[Source](https://git.lo.ink/LO/private/commit/example)\n",
+    );
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /internal repository address/);
+  }
+  const publicLink = check(
+    "README.md",
+    "[Source](https://github.com/LO-ink/lo-platform-adapters)\n",
+  );
+  assert.equal(publicLink.status, 0);
+});
+
 test("repository policy rejects actual trailing, block and document comments", () => {
   for (const text of [russian, "TODO", "FIXME", "HACK", "XXX"]) {
     for (const [file, source] of [
