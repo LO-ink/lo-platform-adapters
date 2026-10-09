@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { bindSafeAreaCss, createMiniAppClient } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "../packages/lo-legacy/dist/index.js";
+import { createWebAppAdapter } from "../packages/compat/dist/index.js";
+
+function absoluteInsetsAdapter(webApp) {
+  return createWebAppAdapter("external-insets-fixture", webApp, new Set(), {
+    contentSafeAreaIncludesSystem: true,
+  });
+}
 import { createAdapter as createTelegramAdapter } from "../packages/telegram/dist/index.js";
 
 const inset = (top, bottom = 0) => ({ top, right: 0, bottom, left: 0 });
@@ -30,9 +36,9 @@ function host() {
   };
 }
 
-test("LO legacy converts full obstructions while real Telegram stays additive", () => {
+test("Explicit WebApp translation converts full obstructions while real Telegram stays additive", () => {
   const { webApp } = host();
-  const lo = createLoAdapter({ LO: { WebApp: webApp } });
+  const lo = absoluteInsetsAdapter(webApp);
   assert.equal(lo.snapshot().contentSafeArea.top, 52);
   assert.equal(lo.snapshot().contentSafeArea.bottom, 0);
   const alias = createTelegramAdapter({
@@ -57,7 +63,7 @@ test("LO legacy converts full obstructions while real Telegram stays additive", 
 });
 
 for (const order of ["safe-first", "content-first"]) {
-  test(`SDK CSS receives coherent LO insets with ${order} legacy events`, () => {
+  test(`SDK CSS receives coherent translated insets with ${order} legacy events`, () => {
     const f = host();
     const values = new Map();
     const previous = globalThis.document;
@@ -71,9 +77,7 @@ for (const order of ["safe-first", "content-first"]) {
         },
       },
     };
-    const client = createMiniAppClient(
-      createLoAdapter({ LO: { WebApp: f.webApp } }),
-    );
+    const client = createMiniAppClient(absoluteInsetsAdapter(f.webApp));
     try {
       const release = bindSafeAreaCss(client);
       assert.equal(values.get("--lo-safe-top"), "111px");
@@ -121,7 +125,7 @@ test("failed registration releases both legacy inset listeners", () => {
     onEvent(event, listener);
     if (event === "safeAreaChanged") throw new Error("fixture rejection");
   };
-  const adapter = createLoAdapter({ LO: { WebApp: f.webApp } });
+  const adapter = absoluteInsetsAdapter(f.webApp);
   assert.throws(
     () => adapter.subscribe("contentSafeAreaChanged", () => {}),
     /fixture rejection/,
@@ -146,7 +150,7 @@ test("removal failures cannot skip another removal or revive inactive listeners"
       if (event === "contentSafeAreaChanged") throw new Error("removal failed");
       offEvent(event, listener);
     };
-    const adapter = createLoAdapter({ LO: { WebApp: f.webApp } });
+    const adapter = absoluteInsetsAdapter(f.webApp);
     const subscribe = () =>
       adapter.subscribe("contentSafeAreaChanged", () => notifications++);
     if (registrationFails) {

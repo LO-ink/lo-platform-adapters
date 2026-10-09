@@ -23,7 +23,6 @@ const run = (file, args, cwd = root) =>
 const packages = [
   "compat",
   "lo",
-  "lo-legacy",
   "telegram",
   "telegram-to-lo",
   "bot-http-lo",
@@ -157,13 +156,12 @@ if (typeof createMiniAppClient !== 'function' || createAdapter() !== null) throw
 import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
 import { createBotClient } from '@lo-ink/bot-sdk';
 import { createAdapter as createLo } from '@lo-ink/adapter-lo';
-import { createAdapter as createLegacyLo } from '@lo-ink/adapter-lo-legacy';
 import { installTelegramCompatibility } from '@lo-ink/adapter-telegram-to-lo';
 import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
 import { detectAdapter as detectVk } from '@lo-ink/adapter-vk';
 import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 if (typeof createMiniAppClient !== 'function' || typeof createBotClient !== 'function' || typeof createLoHttpBotTransport !== 'function') throw new Error('Package export missing');
-if (createLo() !== null || createLegacyLo() !== null || installTelegramCompatibility() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
+if (createLo() !== null || installTelegramCompatibility() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
 `,
   );
   run(process.execPath, ["check.mjs"], consumer);
@@ -172,14 +170,12 @@ if (createLo() !== null || createLegacyLo() !== null || installTelegramCompatibi
     `
 import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
 import { createAdapter as createLo } from '@lo-ink/adapter-lo';
-import { createAdapter as createLegacyLo } from '@lo-ink/adapter-lo-legacy';
 import { installTelegramCompatibility } from '@lo-ink/adapter-telegram-to-lo';
 import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
 import { createAdapter as createVk } from '@lo-ink/adapter-vk';
 import { createBotClient } from '@lo-ink/bot-sdk';
 import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 const lo = createLo(); if (lo) createMiniAppClient(lo);
-const legacy = createLegacyLo(); if (legacy) createMiniAppClient(legacy);
 const migration = installTelegramCompatibility(); migration?.dispose();
 const telegram = createTelegram(); if (telegram) createMiniAppClient(telegram);
 async function vk() { createMiniAppClient(await createVk()); }

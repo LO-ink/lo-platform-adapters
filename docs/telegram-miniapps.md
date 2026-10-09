@@ -37,8 +37,10 @@ application must also run in Telegram, select its outbound adapter only in the
 composition root:
 
 ```ts
-import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "@lo-ink/adapter-lo";
+import {
+  createMiniAppClient,
+  createNativeAdapter as createLoAdapter,
+} from "@lo-ink/miniapp-sdk";
 import { createAdapter as createTelegramAdapter } from "@lo-ink/adapter-telegram";
 
 // Configure the entrypoint explicitly; this does not authenticate a provider.
@@ -47,9 +49,9 @@ const adapter = host === "lo" ? createLoAdapter() : createTelegramAdapter();
 const client = adapter ? createMiniAppClient(adapter) : null;
 ```
 
-For older LO hosts, explicitly choose `@lo-ink/adapter-lo-legacy` instead of the
-native adapter. It preserves 0.21 matching-session composition; do not infer
-required capabilities from an adapter package version.
+LO requires the native Mini App SDK transport. An absent native port is
+unsupported; no WebApp adapter is selected as a fallback. Host capabilities
+must be checked independently of package versions.
 
 | Existing call                        | Typed application call                                                    |
 | ------------------------------------ | ------------------------------------------------------------------------- |

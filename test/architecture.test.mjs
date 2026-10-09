@@ -24,3 +24,30 @@ test("native LO adapter has no compatibility dependency or foreign API", () => {
     }
   }
 });
+
+test("workspace and publisher contain only maintained packages", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const folders = readdirSync(join(root, "packages")).sort();
+  assert.deepEqual(folders, [
+    "bot-http-lo",
+    "compat",
+    "lo",
+    "telegram",
+    "telegram-to-lo",
+    "vk",
+  ]);
+  const workflow = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
+  const declared = JSON.parse(
+    workflow.match(/package-paths: '([^']+)'/)[1],
+  ).sort();
+  assert.deepEqual(declared, folders.map((name) => `packages/${name}`).sort());
+  const lock = JSON.parse(
+    readFileSync(join(root, "package-lock.json"), "utf8"),
+  );
+  assert.deepEqual(
+    Object.keys(lock.packages)
+      .filter((name) => /^packages\/[^/]+$/.test(name))
+      .sort(),
+    declared,
+  );
+});

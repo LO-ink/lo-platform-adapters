@@ -1,15 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
-import { createAdapter } from "../packages/lo-legacy/dist/index.js";
+import {
+  createWebAppAdapter,
+  webAppCapabilities,
+} from "../packages/compat/dist/index.js";
 
 function client(webApp) {
   return createMiniAppClient(
-    createAdapter({ LO: { WebApp: { initData: "signed", ...webApp } } }),
+    createWebAppAdapter(
+      "external-webapp-fixture",
+      { initData: "signed", ...webApp },
+      webAppCapabilities(webApp),
+    ),
   );
 }
 
-test("LO WebApp downloads preserve denial and reject malformed host results", async () => {
+test("WebApp downloads preserve denial and reject malformed host results", async () => {
   let result = false;
   const received = [];
   const sdk = client({
@@ -319,4 +326,38 @@ test("bottom-button progress is mapped explicitly and preserves requested inacti
   );
   assert.equal(calls.length, before);
   partial.dispose();
+});
+
+test("WebApp haptics distinguish selection, impact and notification without fabricating arguments", async () => {
+  const calls = [];
+  const feedback = {
+    selectionChanged(...args) {
+      calls.push(["selection", ...args]);
+    },
+    impactOccurred(...args) {
+      calls.push(["impact", ...args]);
+    },
+    notificationOccurred(...args) {
+      calls.push(["notification", ...args]);
+    },
+  };
+  const sdk = client({ capabilities: ["haptics"], HapticFeedback: feedback });
+  await sdk.call("haptic", { kind: "selection" });
+  await sdk.call("haptic", { kind: "light" });
+  await sdk.call("haptic", { kind: "success" });
+  assert.deepEqual(calls, [
+    ["selection"],
+    ["impact", "light"],
+    ["notification", "success"],
+  ]);
+  delete feedback.selectionChanged;
+  await assert.rejects(sdk.call("haptic", { kind: "selection" }), {
+    code: "unsupported",
+  });
+  delete feedback.impactOccurred;
+  await assert.rejects(sdk.call("haptic", { kind: "light" }), {
+    code: "unsupported",
+  });
+  assert.equal(calls.length, 3);
+  sdk.dispose();
 });

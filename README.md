@@ -9,7 +9,6 @@ script loaders and compatibility wire shapes remain in explicit integrations.
 | Package                              | Direction and responsibility                                          |
 | ------------------------------------ | --------------------------------------------------------------------- |
 | `@lo-ink/adapter-lo`                 | Compatibility re-export of native Mini App SDK transport              |
-| `@lo-ink/adapter-lo-legacy`          | Explicit LO WebApp host support; no native composition                |
 | `@lo-ink/adapter-telegram`           | LO SDK → Telegram host, with an explicit bounded script loader        |
 | `@lo-ink/adapter-telegram-to-lo` 0.1 | Existing Telegram WebApp code → LO-provided compatibility surface     |
 | `@lo-ink/adapter-webapp-compat`      | Shared translation implementation used only by compatibility adapters |
@@ -44,7 +43,7 @@ against a loopback HTTP recorder. They verify request contracts, not every
 production server method. Hosted acceptance remains separate evidence.
 
 `examples/vanilla.ts` is native LO only. The optional cross-platform example
-requires `data-miniapp-host="lo-native"`, `"lo-legacy"` or `"telegram"` on its
+requires `data-miniapp-host="lo-native"` or `"telegram"` on its
 entry document. It loads the external host script only for the explicit Telegram
 entrypoint; missing native support inside LO never selects another provider.
 
@@ -63,8 +62,8 @@ SDK 0.23 with `make native-examples` (also part of `make ci`). This private
 consumer uses Node.js 22.13 or newer and executes the actual vanilla example's
 native lifecycle tests. The root workspace's Mini SDK 0.22 pin belongs to the
 separate historical provider and migration package contracts; it is not the
-recommended dependency for new native applications. The native re-export and explicit LO WebApp migration packages also support
-SDK 0.23. Their packed consumers are checked against SDK 0.22 and 0.23. Native
+recommended dependency for new native applications. The native re-export supports SDK 0.23. Its packed consumers are checked
+against SDK 0.22.2, 0.22.3 and 0.23.0. Native
 calls never fall back to another provider.
 
 Run `make install` and `make ci` with Node.js 22.13 or newer. The same targets run

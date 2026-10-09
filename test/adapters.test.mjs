@@ -1,30 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMiniAppClient } from "@lo-ink/miniapp-sdk";
-import { createAdapter as createLoAdapter } from "../packages/lo-legacy/dist/index.js";
+import {
+  createWebAppAdapter,
+  webAppCapabilities,
+} from "../packages/compat/dist/index.js";
+
+function externalAdapter(webApp) {
+  return createWebAppAdapter(
+    "external-webapp-fixture",
+    webApp,
+    webAppCapabilities(webApp),
+  );
+}
 import {
   createAdapter as createTelegramAdapter,
   isVersionAtLeast,
   loadAdapter,
 } from "../packages/telegram/dist/index.js";
 
-test("LO adapter requires launch data and trusts explicit capabilities", async () => {
-  assert.equal(createLoAdapter({ LO: { WebApp: { initData: "" } } }), null);
+test("WebApp translator respects explicit capabilities", async () => {
   let callback;
-  const adapter = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        version: "99.0",
-        capabilities: ["requestWriteAccess"],
-        requestWriteAccess(done) {
-          callback = done;
-        },
-      },
+  const adapter = externalAdapter({
+    initData: "signed",
+    version: "99.0",
+    capabilities: ["requestWriteAccess"],
+    requestWriteAccess(done) {
+      callback = done;
     },
   });
   assert.ok(adapter);
-  assert.equal(adapter.id, "lo-legacy-webapp");
+  assert.equal(adapter.id, "external-webapp-fixture");
   assert.equal(adapter.capabilities.has("requestWriteAccess"), true);
   assert.equal(adapter.capabilities.has("fullscreen"), false);
   const client = createMiniAppClient(adapter);
@@ -65,15 +71,11 @@ test("invoice capability reflects the actual method and normalizes status", asyn
   finish("paid");
   assert.equal(await payment, "paid");
 
-  const lo = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        capabilities: [],
-        openInvoice() {
-          throw new Error("must not run");
-        },
-      },
+  const lo = externalAdapter({
+    initData: "signed",
+    capabilities: [],
+    openInvoice() {
+      throw new Error("must not run");
     },
   });
   await assert.rejects(
@@ -160,19 +162,15 @@ test("Telegram prepared IDs stay opaque and status duration preserves host defau
 test("adapter subscriptions release raw listeners exactly once", () => {
   let rawListener;
   let removals = 0;
-  const adapter = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        capabilities: [],
-        onEvent(_name, listener) {
-          rawListener = listener;
-        },
-        offEvent(_name, listener) {
-          assert.equal(listener, rawListener);
-          removals++;
-        },
-      },
+  const adapter = externalAdapter({
+    initData: "signed",
+    capabilities: [],
+    onEvent(_name, listener) {
+      rawListener = listener;
+    },
+    offEvent(_name, listener) {
+      assert.equal(listener, rawListener);
+      removals++;
     },
   });
   const client = createMiniAppClient(adapter);
@@ -184,9 +182,7 @@ test("adapter subscriptions release raw listeners exactly once", () => {
 });
 
 test("missing raw event support is explicit", () => {
-  const adapter = createLoAdapter({
-    LO: { WebApp: { initData: "signed", capabilities: [] } },
-  });
+  const adapter = externalAdapter({ initData: "signed", capabilities: [] });
   assert.throws(
     () => createMiniAppClient(adapter).on("activated", () => {}),
     (error) => error.code === "unsupported",
@@ -194,20 +190,16 @@ test("missing raw event support is explicit", () => {
 });
 
 test("snapshot maps host theme keys into a semantic palette", () => {
-  const adapter = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        capabilities: [],
-        themeParams: {
-          bg_color: "#101010",
-          text_color: "#fefefe",
-          hint_color: "#888888",
-          button_color: "#3366ff",
-          secondary_bg_color: "#202020",
-          unknown_color: "#ff00ff",
-        },
-      },
+  const adapter = externalAdapter({
+    initData: "signed",
+    capabilities: [],
+    themeParams: {
+      bg_color: "#101010",
+      text_color: "#fefefe",
+      hint_color: "#888888",
+      button_color: "#3366ff",
+      secondary_bg_color: "#202020",
+      unknown_color: "#ff00ff",
     },
   });
   assert.deepEqual(adapter.snapshot().theme, {
@@ -233,9 +225,7 @@ test("sensor and fullscreen events normalize manager state instead of callback a
     },
     offEvent() {},
   };
-  const client = createMiniAppClient(
-    createLoAdapter({ LO: { WebApp: webApp } }),
-  );
+  const client = createMiniAppClient(externalAdapter(webApp));
   const received = {};
   client.on("accelerometerChanged", (value) => {
     received.accelerometer = value;
@@ -264,20 +254,16 @@ test("sensor and fullscreen events normalize manager state instead of callback a
 test("disposing during location initialization does not open a native request", async () => {
   let finishInit;
   let locationRequests = 0;
-  const adapter = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        capabilities: ["location"],
-        LocationManager: {
-          isInited: false,
-          init(callback) {
-            finishInit = callback;
-          },
-          getLocation() {
-            locationRequests++;
-          },
-        },
+  const adapter = externalAdapter({
+    initData: "signed",
+    capabilities: ["location"],
+    LocationManager: {
+      isInited: false,
+      init(callback) {
+        finishInit = callback;
+      },
+      getLocation() {
+        locationRequests++;
       },
     },
   });
@@ -291,25 +277,21 @@ test("disposing during location initialization does not open a native request", 
 
 test("main button requires its canonical API and never decomposes a request", async () => {
   const calls = [];
-  const adapter = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        capabilities: ["mainButton"],
-        MainButton: {
-          setText(value) {
-            calls.push(["text", value]);
-          },
-          enable() {
-            calls.push(["enable"]);
-          },
-          show() {
-            calls.push(["show"]);
-          },
-          hide() {
-            calls.push(["hide"]);
-          },
-        },
+  const adapter = externalAdapter({
+    initData: "signed",
+    capabilities: ["mainButton"],
+    MainButton: {
+      setText(value) {
+        calls.push(["text", value]);
+      },
+      enable() {
+        calls.push(["enable"]);
+      },
+      show() {
+        calls.push(["show"]);
+      },
+      hide() {
+        calls.push(["hide"]);
       },
     },
   });
@@ -333,16 +315,12 @@ test("main button requires its canonical API and never decomposes a request", as
 });
 
 test("storage rejection remains a failed host request", async () => {
-  const adapter = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        capabilities: ["deviceStorage"],
-        DeviceStorage: {
-          getItem(_key, done) {
-            done(new Error("disk unavailable"));
-          },
-        },
+  const adapter = externalAdapter({
+    initData: "signed",
+    capabilities: ["deviceStorage"],
+    DeviceStorage: {
+      getItem(_key, done) {
+        done(new Error("disk unavailable"));
       },
     },
   });
@@ -359,27 +337,23 @@ test("storage translation validates shapes and preserves own prototype-named key
     value: "safe",
     enumerable: true,
   });
-  const adapter = createLoAdapter({
-    LO: {
-      WebApp: {
-        initData: "signed",
-        capabilities: ["cloudStorage", "deviceStorage"],
-        CloudStorage: {
-          getItems(_keys, done) {
-            done(null, record);
-          },
-          getKeys(done) {
-            done(null, ["draft", 1]);
-          },
-          setItem(_key, _value, done) {
-            done(null, "false");
-          },
-        },
-        DeviceStorage: {
-          getItem(_key, done) {
-            done(null, undefined);
-          },
-        },
+  const adapter = externalAdapter({
+    initData: "signed",
+    capabilities: ["cloudStorage", "deviceStorage"],
+    CloudStorage: {
+      getItems(_keys, done) {
+        done(null, record);
+      },
+      getKeys(done) {
+        done(null, ["draft", 1]);
+      },
+      setItem(_key, _value, done) {
+        done(null, "false");
+      },
+    },
+    DeviceStorage: {
+      getItem(_key, done) {
+        done(null, undefined);
       },
     },
   });
@@ -748,8 +722,9 @@ test("canonical swipe controls retain conservative compatibility gates", async (
     Telegram: { WebApp: { initData: "signed", version: "99.0" } },
   });
   assert.equal(missing.capabilities.has("verticalSwipes"), false);
-  const legacy = createLoAdapter({
-    LO: { WebApp: { initData: "signed", capabilities: ["verticalSwipes"] } },
+  const external = externalAdapter({
+    initData: "signed",
+    capabilities: ["verticalSwipes"],
   });
-  assert.equal(legacy.capabilities.has("verticalSwipes"), false);
+  assert.equal(external.capabilities.has("verticalSwipes"), false);
 });

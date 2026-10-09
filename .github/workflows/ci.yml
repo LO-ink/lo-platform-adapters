@@ -95,4 +95,4 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: LO-ink/lo-developer-tools/actions/publish-npm@5720b78f8b9bf3a540044173cb83b48e3610c76e
         with:
-          package-paths: '["packages/compat","packages/bot-http-lo","packages/telegram-to-lo","packages/vk","packages/telegram","packages/lo","packages/lo-legacy"]'
+          package-paths: '["packages/compat","packages/bot-http-lo","packages/telegram-to-lo","packages/vk","packages/telegram","packages/lo"]'

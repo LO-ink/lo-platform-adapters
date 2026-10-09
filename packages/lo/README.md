@@ -32,13 +32,10 @@ require the corresponding LO host rollout; earlier ports omit them.
 The current decoder does not advertise invoices. Actual
 availability still depends on the running LO client, device and permission.
 
-## Migration from 0.21
+## Native host requirement
 
-This is a breaking adapter release: `createAdapter` no longer composes or reads
-`LO.WebApp`. Native snapshots and events are authoritative. If your released
-host still needs the older surface, keep 0.21 pinned or explicitly use
-[`@lo-ink/adapter-lo-legacy`](https://github.com/LO-ink/lo-platform-adapters/tree/main/packages/lo-legacy). Do not upgrade an existing
-application until its required native capabilities and events are available.
+`createAdapter` uses only `LO.MiniAppNative`. Native snapshots and events are
+authoritative; an absent native host is unsupported. There is no WebApp fallback.
 
 Launch assertions stay opaque and untrusted. Send their exact bytes to your
 backend for verification. The adapter does not authenticate them.
