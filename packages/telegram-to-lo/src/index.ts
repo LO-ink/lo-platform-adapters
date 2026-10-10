@@ -1,169 +1,254 @@
-import type { LegacyWebApp } from "@lo-ink/adapter-webapp-compat";
+import {
+  createLoClient,
+  MiniAppError,
+  type LoNativeGlobal,
+  type LoMiniAppNativePort,
+} from "@lo-ink/miniapp-sdk";
+import {
+  createFacade,
+  COMPATIBILITY_LIMITS,
+  type Failure,
+  type TelegramWebApp,
+} from "./facade.js";
+export { COMPATIBILITY_LIMITS } from "./facade.js";
+export type { Failure, TelegramWebApp } from "./facade.js";
 
-export type TelegramCompatibilityScope = {
-  LO?: { WebApp?: LegacyWebApp };
-  Telegram?: { WebApp?: LegacyWebApp; [key: string]: unknown };
+export type TelegramCompatibilityScope = LoNativeGlobal & {
+  Telegram?: { WebApp?: unknown; [key: string]: unknown };
 };
-
-export interface TelegramCompatibility {
-  /** Still owns the installed global; this does not authenticate a user. */
-  readonly installed: boolean;
-  /** Releases this lease. The final lease restores the original property. */
-  dispose(): void;
+export interface TelegramCompatibilityOptions {
+  scope?: TelegramCompatibilityScope;
+  /** Required sink for asynchronous failures of callback/void APIs. Must not throw. */
+  onError(failure: Failure): void;
+  signal?: AbortSignal;
 }
-
+export interface TelegramCompatibility {
+  readonly installed: boolean;
+  readonly webApp: TelegramWebApp;
+  /** Last lease cancels requests, removes subscriptions and joins their settlement. */
+  dispose(): Promise<void>;
+}
+type Lease = { onError(failure: Failure): void };
 type Installation = {
-  source: LegacyWebApp;
+  port: LoMiniAppNativePort;
   launchData: string;
-  container: NonNullable<TelegramCompatibilityScope["Telegram"]>;
-  owners: number;
+  generation: string;
+  leases: Set<Lease>;
+  webApp: TelegramWebApp;
   owns(): boolean;
-  restore(): void;
+  live(): boolean;
+  stop(): Promise<void>;
 };
 const installations = new WeakMap<object, Installation>();
+const sameDescriptor = (
+  a: PropertyDescriptor | undefined,
+  b: PropertyDescriptor,
+) =>
+  !!a &&
+  a.value === b.value &&
+  a.get === b.get &&
+  a.set === b.set &&
+  a.writable === b.writable &&
+  a.enumerable === b.enumerable &&
+  a.configurable === b.configurable;
 
-function sameDescriptor(
-  current: PropertyDescriptor | undefined,
-  installed: PropertyDescriptor,
-): boolean {
-  return (
-    !!current &&
-    current.value === installed.value &&
-    current.get === installed.get &&
-    current.set === installed.set &&
-    current.writable === installed.writable &&
-    current.enumerable === installed.enumerable &&
-    current.configurable === installed.configurable
-  );
+function notify(handler: (failure: Failure) => void, failure: Failure): void {
+  const fault = () =>
+    queueMicrotask(() => {
+      throw new MiniAppError("failed", "Compatibility error handler failed");
+    });
+  try {
+    const result: unknown = handler(failure);
+    // JavaScript callers can return a Promise despite the synchronous contract.
+    // Observe its rejection; report sink failures as uncaught programming errors.
+    if (result && typeof (result as PromiseLike<unknown>).then === "function")
+      void Promise.resolve(result).catch(fault);
+  } catch {
+    fault();
+  }
 }
 
-/**
- * Opt-in bridge for an existing WebApp application running inside LO.
- * No script loading, API emulation, version inflation, or import-time mutation.
- * The native container must already provide the supported compatibility API.
- */
+/** Explicit inbound facade. Native discovery only; never loads or aliases another SDK. */
 export function installTelegramCompatibility(
-  scope: TelegramCompatibilityScope = globalThis as TelegramCompatibilityScope,
+  options: TelegramCompatibilityOptions,
 ): TelegramCompatibility | null {
-  let source: LegacyWebApp | undefined;
-  try {
-    source = scope.LO?.WebApp;
-    if (
-      !source ||
-      typeof source !== "object" ||
-      typeof source.initData !== "string" ||
-      !source.initData ||
-      !Array.isArray(source.capabilities) ||
-      !source.capabilities.every((value) => typeof value === "string")
-    )
-      return null;
-  } catch {
-    return null;
-  }
-  const previous = installations.get(scope);
+  if (!options || typeof options.onError !== "function")
+    throw new TypeError("A compatibility error handler is required");
+  if (options.signal?.aborted) throw new MiniAppError("aborted");
+  const scope = options.scope ?? (globalThis as TelegramCompatibilityScope);
+  const prior = installations.get(scope);
+  if (prior && !prior.live())
+    throw new MiniAppError(
+      "disposed",
+      "Dispose the previous installation before reinstalling",
+    );
+  const port = scope.LO?.MiniAppNative;
+  const client = createLoClient({ LO: { MiniAppNative: port } });
+  if (!client || !port) return null;
   let installation: Installation;
-  if (previous) {
-    if (
-      previous.source !== source ||
-      previous.launchData !== source.initData ||
-      !previous.owns()
-    )
-      throw new Error(
-        "Compatibility installation changed; dispose it before reinstalling",
+  if (prior) {
+    client.dispose();
+    if (!prior.live() || prior.port !== port)
+      throw new MiniAppError(
+        "disposed",
+        "Dispose the previous installation before reinstalling",
       );
-    installation = previous;
+    installation = prior;
   } else {
-    const existing = scope.Telegram;
-    if (
-      existing !== undefined &&
-      (existing === null || typeof existing !== "object")
-    )
-      throw new TypeError("Cannot replace an existing Telegram global");
-    if (existing?.WebApp !== undefined)
-      throw new Error("Cannot replace an existing Telegram WebApp");
-    const container = existing ?? {};
-    const target: object = existing ?? scope;
-    const property = existing ? "WebApp" : "Telegram";
-    const original = Object.getOwnPropertyDescriptor(target, property);
-    if (!existing) {
-      Object.defineProperty(container, "WebApp", {
-        value: source,
-        enumerable: true,
-        configurable: true,
-        writable: true,
-      });
+    const originalNamespace = Object.getOwnPropertyDescriptor(
+      scope,
+      "Telegram",
+    );
+    if (!originalNamespace && "Telegram" in scope) {
+      client.dispose();
+      throw new TypeError("Cannot shadow an inherited Telegram global");
     }
-    Object.defineProperty(target, property, {
-      value: existing ? source : container,
-      enumerable: original?.enumerable ?? true,
-      configurable: true,
-      writable: true,
-    });
-    const installed = Object.getOwnPropertyDescriptor(target, property)!;
-    const installedWebApp = Object.getOwnPropertyDescriptor(
-      container,
-      "WebApp",
-    )!;
-    const owns = () => {
+    // Accessors belong to another owner; never execute them as discovery hooks.
+    if (originalNamespace && !("value" in originalNamespace)) {
+      client.dispose();
+      throw new TypeError("Cannot replace a Telegram accessor");
+    }
+    const existing = originalNamespace?.value;
+    if (existing !== undefined && (!existing || typeof existing !== "object")) {
+      client.dispose();
+      throw new TypeError("Cannot replace an existing Telegram global");
+    }
+    const container = existing ?? {};
+    const originalWebApp = Object.getOwnPropertyDescriptor(container, "WebApp");
+    if (!originalWebApp && "WebApp" in container) {
+      client.dispose();
+      throw new TypeError("Cannot shadow an inherited Telegram WebApp");
+    }
+    if (
+      originalWebApp &&
+      (!("value" in originalWebApp) || originalWebApp.value !== undefined)
+    ) {
+      client.dispose();
+      throw new TypeError("Cannot replace an existing Telegram WebApp");
+    }
+    const target = existing ? container : scope;
+    const property = existing ? "WebApp" : "Telegram";
+    const original = existing ? originalWebApp : originalNamespace;
+    const leases = new Set<Lease>();
+    const launchData = client.adapter.launchData,
+      generation = port.generation;
+    let stopped = false,
+      installed: PropertyDescriptor,
+      installedWebApp: PropertyDescriptor;
+    const owns = () =>
+      !!installed &&
+      sameDescriptor(
+        Object.getOwnPropertyDescriptor(target, property),
+        installed,
+      ) &&
+      sameDescriptor(
+        Object.getOwnPropertyDescriptor(container, "WebApp"),
+        installedWebApp,
+      ) &&
+      sameDescriptor(
+        Object.getOwnPropertyDescriptor(scope, "Telegram"),
+        existing ? originalNamespace! : installed,
+      );
+    const live = () => {
       try {
         return (
-          sameDescriptor(
-            Object.getOwnPropertyDescriptor(target, property),
-            installed,
-          ) &&
-          sameDescriptor(
-            Object.getOwnPropertyDescriptor(container, "WebApp"),
-            installedWebApp,
-          ) &&
-          scope.Telegram === container
+          !stopped &&
+          owns() &&
+          scope.LO?.MiniAppNative === port &&
+          port.generation === generation &&
+          port.launchData === launchData
         );
       } catch {
         return false;
       }
     };
+    const facade = createFacade(client, live, (failure) => {
+      for (const lease of [...leases]) notify(lease.onError, failure);
+    });
+    try {
+      if (!existing)
+        Object.defineProperty(container, "WebApp", {
+          value: facade.webApp,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
+      Object.defineProperty(target, property, {
+        value: existing ? facade.webApp : container,
+        enumerable: original?.enumerable ?? true,
+        configurable: true,
+        writable: true,
+      });
+      installed = Object.getOwnPropertyDescriptor(target, property)!;
+      installedWebApp = Object.getOwnPropertyDescriptor(container, "WebApp")!;
+    } catch (error) {
+      client.dispose();
+      throw error;
+    }
+    let completion: Promise<void> | undefined;
     installation = {
-      source,
-      launchData: source.initData,
-      container,
-      owners: 0,
+      port,
+      launchData,
+      generation,
+      leases,
+      webApp: facade.webApp,
       owns,
-      restore() {
-        if (!owns()) return;
-        if (
-          !existing &&
-          Reflect.ownKeys(container).some((key) => key !== "WebApp")
-        ) {
-          Reflect.deleteProperty(container, "WebApp");
-          return;
-        }
-        if (original) Object.defineProperty(target, property, original);
-        else Reflect.deleteProperty(target, property);
+      live,
+      stop() {
+        if (completion) return completion;
+        completion = (async () => {
+          stopped = true;
+          try {
+            if (owns()) {
+              if (
+                !existing &&
+                Reflect.ownKeys(container).some((key) => key !== "WebApp")
+              )
+                Reflect.deleteProperty(container, "WebApp");
+              else if (original)
+                Object.defineProperty(target, property, original);
+              else Reflect.deleteProperty(target, property);
+            }
+          } finally {
+            installations.delete(scope);
+            await facade.stop();
+          }
+        })();
+        return completion;
       },
     };
     installations.set(scope, installation);
   }
-  installation.owners++;
-  let active = true;
+  if (installation.leases.size >= COMPATIBILITY_LIMITS.leases)
+    throw new MiniAppError("failed", "Compatibility lease limit reached");
+  const lease: Lease = { onError: options.onError };
+  installation.leases.add(lease);
+  let released = false;
+  const dispose = () => {
+    if (!released) {
+      released = true;
+      options.signal?.removeEventListener("abort", abort);
+      installation.leases.delete(lease);
+    }
+    return installation.leases.size === 0
+      ? installation.stop()
+      : Promise.resolve();
+  };
+  const abort = () => {
+    void dispose().catch(() =>
+      notify(options.onError, {
+        operation: "dispose",
+        error: new MiniAppError("failed", "Compatibility cleanup failed"),
+      }),
+    );
+  };
+  options.signal?.addEventListener("abort", abort, { once: true });
+  if (options.signal?.aborted) abort();
   return {
     get installed() {
-      try {
-        return (
-          active &&
-          installation.owns() &&
-          scope.LO?.WebApp === installation.source &&
-          installation.source.initData === installation.launchData
-        );
-      } catch {
-        return false;
-      }
+      return !released && installation.live();
     },
-    dispose() {
-      if (!active) return;
-      active = false;
-      installation.owners--;
-      if (installation.owners) return;
-      installations.delete(scope);
-      installation.restore();
-    },
+    webApp: installation.webApp,
+    dispose,
   };
 }
