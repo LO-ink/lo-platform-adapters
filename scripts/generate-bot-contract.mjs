@@ -1,18 +1,20 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 
-const source = process.argv[2],
+const sourceArgument = process.argv[2],
   sha = process.argv[3];
 if (
-  !source ||
+  !sourceArgument ||
   !/^[a-f0-9]{40}$/.test(sha ?? "") ||
   process.argv.slice(4).some((option) => option !== "--check")
 )
   throw new Error(
     "Usage: node scripts/generate-bot-contract.mjs <server-botmethod-directory> <server-sha> [--check]",
   );
+// Git reports a physical checkout root; resolve aliases before deriving paths.
+const source = realpathSync(sourceArgument);
 const service = resolve(source, "../../..");
 const generator = ["main", "extract", "manifest"].map((name) =>
   resolve(service, "cmd/bot_contract", name + ".go"),
