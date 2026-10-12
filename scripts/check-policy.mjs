@@ -23,6 +23,17 @@ for (const file of new Set(files)) {
   }
   if (bytes.includes(0)) continue;
   const value = bytes.toString("utf8");
+  if (/(?:^|\/)(?:lo-bot-api|contract)\.json$/.test(file)) {
+    try {
+      const contract = JSON.parse(value);
+      if (Object.hasOwn(contract, "source"))
+        failures.push(
+          `${file}: public contract contains private source provenance`,
+        );
+    } catch {
+      failures.push(`${file}: public contract must be valid JSON`);
+    }
+  }
   if (value.includes(retired)) failures.push(`${file}: retired repository URL`);
   if (/\.(?:md|markdown)$/i.test(file) && /\bgit\.lo\.ink\b/i.test(value))
     failures.push(

@@ -52,7 +52,7 @@ Compatibility guides live here: [bot migration](docs/telegram-bots.md), [mini-ap
 
 Python integrations: [lo-aiogram](python/lo-aiogram/README.md) and the [LO Bot API emulator](python/lo-bot-api-emulator/README.md). Actual aiogram handlers and pinned Telegraf/grammY clients run against the generated strict contract; unsupported requests must fail explicitly. Unmodeled methods return 501. The fixture does not validate real media content or reproduce authentication, storage, transcoding and production permissions.
 
-The [contract](contracts/lo-bot-api.json) defines the request and response shapes verified by the migration suites. Unsaved server changes require explicit `--allow-working-tree` and remain labeled unreleased. The server owns generation and its standard Go test checks source drift.
+The [contract](contracts/lo-bot-api.json) defines the request and response shapes verified by the migration suites. Public exports require verified, committed server source; dirty source is rejected before writing any contract. Generation verifies private source provenance internally, then omits it from public artifacts. The server owns generation and its standard Go test checks source drift.
 
 ## Quality checks
 
