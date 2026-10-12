@@ -9,4 +9,4 @@ npm test
 
 The deployed LO method root is `https://api.lo.ink`. Configure `telegram.apiRoot` in Telegraf or `client.apiRoot` in grammY; the libraries add `/bot<TOKEN>/<method>`. Do not append `/bot` to the configured root. Keep tokens on the backend.
 
-Reference contract: Messenger `4e4357f4fdcb1f16aa24e206748a0d4532106384`, `bots/bot-api-service/internal/controller/http/botapi`. Supported methods still require a deployed integration test with a dedicated bot. Shared bot polling is intentionally absent from this suite.
+Reference contract: [the generated public API contract](../../contracts/lo-bot-api.json). Supported methods still require a deployed integration test with a dedicated bot. Shared bot polling is intentionally absent from this suite.

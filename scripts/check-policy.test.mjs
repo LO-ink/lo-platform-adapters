@@ -42,6 +42,29 @@ test("public documentation rejects internal repository references", () => {
   assert.equal(publicLink.status, 0);
 });
 
+test("public contracts reject private provenance even without a repository URL", () => {
+  for (const source of [
+    { commit: "a".repeat(40) },
+    { baseCommit: "b".repeat(40), status: "working-tree" },
+    { files: { "internal/method.go": "c".repeat(64) } },
+    null,
+  ]) {
+    for (const file of ["contract.json", "lo-bot-api.json"]) {
+      const result = check(file, JSON.stringify({ methods: {}, source }));
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stderr, /private source provenance/);
+    }
+  }
+  const publicContract = check(
+    "contract.json",
+    JSON.stringify({ methods: { getMe: {} }, limits: { textUtf16: 4096 } }),
+  );
+  assert.equal(publicContract.status, 0, publicContract.stderr);
+  const malformed = check("contract.json", "{");
+  assert.equal(malformed.status, 1);
+  assert.match(malformed.stderr, /valid JSON/);
+});
+
 test("repository policy rejects actual trailing, block and document comments", () => {
   for (const text of [russian, "TODO", "FIXME", "HACK", "XXX"]) {
     for (const [file, source] of [

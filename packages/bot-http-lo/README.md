@@ -83,4 +83,4 @@ Native keyboard values in bot-sdk 0.4 use camelCase. The transport converts them
 
 LO app-data service updates may use a zero stored-message sentinel. The adapter omits `appData.messageId` in that case and preserves the real update cursor and sender; it does not invent a message identifier. Signed LO paths from `getFile` are encoded as one file-route component.
 
-`@lo-ink/bot-http-lo/contract` exports the server-generated JSON manifest. Its source digests are checked against the declared Git revision. A local working-tree fixture has `source.commit: null`, explicit base commit and fingerprint; it is unreleased and does not identify a deployed server. Regenerate against a committed server revision before release.
+`@lo-ink/bot-http-lo/contract` exports the server-generated public API contract. Generation verifies committed server source and rejects dirty source before export. Private repository and file provenance are not published. Contract verification does not identify or qualify a deployed server.
