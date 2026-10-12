@@ -5,7 +5,9 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -74,8 +76,8 @@ function fixture(run) {
     writeFileSync(join(bin, "go"), '#!/bin/sh\ncat "$LO_TEST_CONTRACT"\n', {
       mode: 0o755,
     });
-    const invoke = (...flags) =>
-      spawnSync(process.execPath, [generator, source, revision, ...flags], {
+    const invokeFrom = (input, ...flags) =>
+      spawnSync(process.execPath, [generator, input, revision, ...flags], {
         cwd: output,
         encoding: "utf8",
         env: {
@@ -84,7 +86,8 @@ function fixture(run) {
           LO_TEST_CONTRACT: contract,
         },
       });
-    run({ source, output, payload, invoke });
+    const invoke = (...flags) => invokeFrom(source, ...flags);
+    run({ root, server, source, output, payload, invoke, invokeFrom });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -112,6 +115,44 @@ test("dirty source cannot overwrite any public target, including with the retire
       const result = invoke(...flags);
       assert.notEqual(result.status, 0);
       assert.match(result.stderr, /specified commit|Usage:/);
+      for (const target of targets)
+        assert.equal(
+          readFileSync(join(output, target), "utf8"),
+          "preserved public target\n",
+        );
+    }
+  });
+});
+
+test("canonical source directory exports the same verified public contract", () => {
+  fixture(({ source, output, payload, invokeFrom }) => {
+    const canonicalSource = realpathSync(source);
+    const result = invokeFrom(canonicalSource);
+    assert.equal(result.status, 0, result.stderr);
+    for (const target of targets)
+      assert.deepEqual(JSON.parse(readFileSync(join(output, target))), payload);
+    assert.equal(invokeFrom(canonicalSource, "--check").status, 0);
+  });
+});
+
+test("symlinked source verifies physical Git paths and still refuses dirty export", () => {
+  fixture(({ root, server, source, output, payload, invokeFrom }) => {
+    const alias = join(root, "server-alias");
+    symlinkSync(realpathSync(server), alias, "dir");
+    const linkedSource = join(alias, "bot-service/controller/http/botapi");
+    assert.notEqual(linkedSource, realpathSync(linkedSource));
+    const result = invokeFrom(linkedSource);
+    assert.equal(result.status, 0, result.stderr);
+    for (const target of targets)
+      assert.deepEqual(JSON.parse(readFileSync(join(output, target))), payload);
+    assert.equal(invokeFrom(linkedSource, "--check").status, 0);
+    for (const target of targets)
+      writeFileSync(join(output, target), "preserved public target\n");
+    writeFileSync(join(source, "method.go"), "package changed\n");
+    for (const flags of [[], ["--allow-working-tree"]]) {
+      const dirty = invokeFrom(linkedSource, ...flags);
+      assert.notEqual(dirty.status, 0);
+      assert.match(dirty.stderr, /specified commit|Usage:/);
       for (const target of targets)
         assert.equal(
           readFileSync(join(output, target), "utf8"),
