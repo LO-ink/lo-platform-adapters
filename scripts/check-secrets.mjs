@@ -1,14 +1,20 @@
-import { createHash } from "node:crypto";
-import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   writeFileSync,
   rmSync,
-  readFileSync,
   mkdirSync,
+  unlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  download,
+  limits,
+  readBounded,
+  runBounded,
+  ScannerFailure,
+} from "./secret-scanner-runtime.mjs";
 
 const platform = process.platform;
 const architecture = { arm64: "arm64", x64: "x64" }[process.arch];
@@ -25,26 +31,41 @@ const checksum = checksums[`${platform}_${architecture}`];
 if (!checksum)
   throw new Error("Secret scanning requires Linux or macOS on arm64 or x64");
 const temp = mkdtempSync(join(tmpdir(), "lo-secrets-"));
+const controller = new AbortController();
+let interrupted,
+  cleanupDebt = false;
+const interrupt = (signal) => {
+  interrupted ||= signal;
+  controller.abort();
+};
+const onTerm = () => interrupt("SIGTERM");
+const onInt = () => interrupt("SIGINT");
+process.on("SIGTERM", onTerm);
+process.on("SIGINT", onInt);
 try {
-  const response = await fetch(
+  const archive = await download(
     `https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_${platform}_${architecture}.tar.gz`,
+    checksum,
+    { signal: controller.signal },
   );
-  if (!response.ok)
-    throw new Error(`Cannot download scanner: HTTP ${response.status}`);
-  const archive = Buffer.from(await response.arrayBuffer());
-  if (createHash("sha256").update(archive).digest("hex") !== checksum)
-    throw new Error("Secret scanner checksum mismatch");
-  writeFileSync(join(temp, "scanner.tar.gz"), archive);
-  execFileSync("tar", [
-    "-xzf",
-    join(temp, "scanner.tar.gz"),
-    "-C",
-    temp,
-    "gitleaks",
-  ]);
+  writeFileSync(join(temp, "scanner.tar.gz"), archive, {
+    flag: "wx",
+    mode: 0o600,
+  });
+  const extraction = await runBounded(
+    process.execPath,
+    [
+      fileURLToPath(new URL("./secret-scanner-runtime.mjs", import.meta.url)),
+      "--extract",
+      join(temp, "scanner.tar.gz"),
+      join(temp, "gitleaks"),
+    ],
+    { signal: controller.signal, timeoutMs: limits.extractionMs },
+  );
+  if (extraction.status !== 0) throw new ScannerFailure("archive refused");
   const config = resolve(".gitleaks.toml");
   const fixture = join(temp, "fixture");
-  mkdirSync(fixture);
+  mkdirSync(fixture, { mode: 0o700 });
   const candidate = `123456:${"A".repeat(43)}`;
   for (const [value, expected] of [
     [candidate, 1],
@@ -53,8 +74,10 @@ try {
     writeFileSync(
       join(fixture, "credential.json"),
       JSON.stringify({ credential: value }),
+      { mode: 0o600 },
     );
-    const probe = spawnSync(
+    const report = join(temp, "probe.json");
+    const probe = await runBounded(
       join(temp, "gitleaks"),
       [
         "dir",
@@ -66,29 +89,56 @@ try {
         "--report-format",
         "json",
         "--report-path",
-        join(temp, "probe.json"),
+        report,
       ],
-      { encoding: "utf8" },
+      { signal: controller.signal },
     );
-    if (probe.error || probe.signal || probe.status !== expected)
-      throw new Error("LO credential scanner regression failed");
-    if (
-      expected === 1 &&
-      !JSON.parse(readFileSync(join(temp, "probe.json"), "utf8")).some(
-        (finding) => finding.RuleID === "lo-bot-token",
+    if (probe.status !== expected)
+      throw new ScannerFailure("LO credential regression failed");
+    if (expected === 1) {
+      const findings = JSON.parse(
+        readBounded(report, limits.reportBytes).toString("utf8"),
+      );
+      if (
+        !Array.isArray(findings) ||
+        !findings.some((finding) => finding?.RuleID === "lo-bot-token")
       )
-    )
-      throw new Error("LO credential rule is not active");
+        throw new ScannerFailure("LO credential report refused");
+      unlinkSync(report);
+    }
   }
-  const result = spawnSync(
+  const result = await runBounded(
     join(temp, "gitleaks"),
     ["dir", ".", "--redact", "--no-banner"],
-    { stdio: "inherit" },
+    { signal: controller.signal },
   );
-  if (result.error) throw result.error;
-  if (result.signal)
-    throw new Error(`Secret scanner terminated: ${result.signal}`);
-  process.exitCode = result.status;
+  if (result.status !== 0) {
+    process.stderr.write(
+      "Secret scanner rejected the source tree. Review findings locally; raw scanner output is not printed.\n",
+    );
+    process.exitCode = result.status;
+  } else {
+    process.stdout.write("Secret scanner passed.\n");
+  }
+} catch (error) {
+  cleanupDebt = error instanceof ScannerFailure && error.cleanupDebt;
+  process.stderr.write(
+    error instanceof ScannerFailure
+      ? `${error.message}\n`
+      : "Secret scanner: operation failed\n",
+  );
+  process.exitCode = 1;
 } finally {
-  rmSync(temp, { recursive: true, force: true });
+  // A still-owned process may retain these paths: never erase them on debt.
+  if (!cleanupDebt) {
+    try {
+      rmSync(temp, { recursive: true, force: true });
+    } catch {
+      process.stderr.write("Secret scanner: cleanup failed\n");
+      process.exitCode = 1;
+    }
+  }
+  process.removeListener("SIGTERM", onTerm);
+  process.removeListener("SIGINT", onInt);
+  if (interrupted) process.exitCode = interrupted === "SIGTERM" ? 143 : 130;
 }

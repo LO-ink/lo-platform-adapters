@@ -18,7 +18,7 @@
     "security": "npm audit --audit-level=high",
     "test:coverage": "c8 npm test",
     "policy": "node --test scripts/check-policy.test.mjs && node scripts/check-policy.mjs",
-    "secrets": "node scripts/check-secrets.mjs",
+    "secrets": "node --test scripts/secret-scanner-runtime.test.mjs && node scripts/check-secrets.mjs",
     "ci": "make ci"
   },
   "devDependencies": {
