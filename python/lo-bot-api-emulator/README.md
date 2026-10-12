@@ -25,7 +25,7 @@ The Python API exposes `LoBotApiEmulator.requests`: the last 1000 method, field-
 
 Regenerate the contract from a checked-out server revision using the repository's `scripts/generate-bot-contract.mjs`. `--check` compares all packaged copies without modifying them. CI executes unchanged aiogram handlers and Telegraf/grammY clients against this fixture, including a negative test that removes compatibility middleware.
 
-Contract provenance is checked against Git source digests. Local verification may use `--allow-working-tree`; its manifest has `source.commit: null`, an explicit base commit and source fingerprint. Such a fixture is unreleased and does not identify a deployed server revision.
+Generation verifies the contract against committed server source and refuses dirty source. Private provenance is checked before export and is not included in distributions. The public contract describes verified request and response shapes; it does not identify or qualify a deployed server.
 
 Document albums require distinct cached file references. The fixture models the observed core refusal for duplicate document IDs; newly uploaded items create distinct synthetic assets.
 

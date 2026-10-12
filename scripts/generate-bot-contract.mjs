@@ -5,9 +5,13 @@ import { createHash } from "node:crypto";
 
 const source = process.argv[2],
   sha = process.argv[3];
-if (!source || !/^[a-f0-9]{40}$/.test(sha ?? ""))
+if (
+  !source ||
+  !/^[a-f0-9]{40}$/.test(sha ?? "") ||
+  process.argv.slice(4).some((option) => option !== "--check")
+)
   throw new Error(
-    "Usage: node scripts/generate-bot-contract.mjs <server-botmethod-directory> <server-sha> [--check] [--allow-working-tree]",
+    "Usage: node scripts/generate-bot-contract.mjs <server-botmethod-directory> <server-sha> [--check]",
   );
 const service = resolve(source, "../../..");
 const generator = ["main", "extract", "manifest"].map((name) =>
@@ -79,18 +83,13 @@ for (const [path, digest] of Object.entries(manifest.source.files)) {
   )
     dirty = true;
 }
-if (dirty && !process.argv.includes("--allow-working-tree"))
+if (dirty)
   throw new Error(
-    "Server sources differ from the specified commit. Commit approved changes first, or use --allow-working-tree for local verification.",
+    "Server sources differ from the specified commit; public contracts require committed source.",
   );
-if (dirty) {
-  manifest.source.commit = null;
-  manifest.source.baseCommit = sha;
-  manifest.source.status = "working-tree";
-  manifest.source.fingerprint = createHash("sha256")
-    .update(canonical(manifest.source.files))
-    .digest("hex");
-} else manifest.source.commit = sha;
+// Private source verification above is required before every public export.
+// Consumers need the API contract, not internal repository or file provenance.
+delete manifest.source;
 const body = JSON.stringify(manifest, null, 2) + "\n";
 for (const target of [
   "contracts/lo-bot-api.json",

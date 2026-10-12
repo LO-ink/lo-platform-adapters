@@ -16,11 +16,7 @@ test("published transports and Python packages share the generated server contra
       reference,
     );
   const contract = JSON.parse(reference);
-  assert.match(contract.source.commit, /^[a-f0-9]{40}$/);
-  assert.equal(contract.source.status, undefined);
-  assert.equal(contract.source.baseCommit, undefined);
-  assert.equal(contract.source.fingerprint, undefined);
-  assert.ok(Object.keys(contract.source.files).length > 30);
+  assert.equal(Object.hasOwn(contract, "source"), false);
   assert.deepEqual(contract.methods.sendVideo.uploadOnly, [
     "duration",
     "width",
