@@ -37,7 +37,7 @@ Every request is a single POST to `/bot<TOKEN>/<method>`. Redirects are refused 
 `HttpBotError` exposes the canonical SDK error `code`, HTTP `status`, upstream `platformCode`, and optional `retryAfterSeconds`. Messages are intentionally generic. Version 0.3 adds a bounded, sanitized
 `BadRequest.description` for decisions such as invalidating a cached file ID.
 
-## Secretary extension (0.2)
+## Secretary extension
 
 The transport also implements `SecretaryTransport` for
 `createSecretaryClient(transport)`. Business events returned by `getUpdates` are
@@ -53,8 +53,10 @@ credential generation and owner identity are derived by the server, never from
 caller-provided grant fields. Receiving, reading, sending and deleting remain
 independent. `deleteAll` is explicit and requires its separate owner permission.
 
-See the [reference bot](https://github.com/LO-ink/lo-platform-adapters/tree/main/examples/secretary#readme) for durable polling,
-authenticated webhooks, owner/chat isolation, replay, revoke and opt-in. These are LO-native secretary operations.
+The [native review reference](https://github.com/LO-ink/lo-platform-adapters/tree/main/examples/secretary#readme)
+is retired. Preserve its old state; never convert pending jobs to sends.
+AI replies and approval belong to the bot; LO retains templates, schedules and
+delegated permissions. See the [bot-owned reply guide](https://github.com/LO-ink/lo-platform-adapters/blob/main/docs/secretary.md).
 
 ## Media, keyboards and errors
 
