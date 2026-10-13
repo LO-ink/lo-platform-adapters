@@ -34,7 +34,8 @@ for (const fixture of fixtures) {
   });
 }
 
-test("an uncertain committed proposal repeats exactly one request identity", async () => {
+// Transitional SDK 0.5.2 compatibility only; never run or migrate legacy jobs as sends.
+test("legacy SDK compatibility: an uncertain committed proposal repeats its original identity", async () => {
   const event = decodeLoBotUpdate(
     fixtures.find((f) => f.name === "exact-incoming").wire,
   );
