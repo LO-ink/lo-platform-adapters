@@ -10,7 +10,7 @@ before network or state I/O. Never convert its old jobs into sends.
 
 SDK 0.6.0 removes the native proposal method. Earlier versions or transitional
 server contracts may still list it; that does not make it a supported new flow.
-The HTTP adapter peer-range upgrade follows the coordinated SDK/server release.
+HTTP adapter 0.8.0 requires SDK ^0.6.0; upgrade both packages together.
 
 ## Transport operations
 
@@ -34,7 +34,7 @@ substitute a peer ID for a conversation ID or treat a cached grant as permission
 `test/secretary-reference.test.mjs` verifies that retired entry points refuse
 without network, payload reads or changes to old state and locks.
 `test/secretary-contract-fixtures.test.mjs` runs reusable synthetic wire fixtures
-through the production lossless decoder and client. The fixtures use no real
+through the production lossless decoder and webhook parser. The fixtures use no real
 account, token or private conversation data.
 
 ```sh

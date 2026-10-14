@@ -4,7 +4,8 @@ Version 0.8 re-exports the native HTTP implementation from `@lo-ink/bot-sdk` 0.6
 Upgrade both packages together; the 0.5 SDK peer is no longer accepted.
 The SDK no longer exposes native secretary proposal/draft operations.
 Bot-owned AI approval uses delegated message actions; LO exact templates remain.
-The unrelated ordinary `sendMessageDraft` operation remains available.
+The unrelated ordinary server `sendMessageDraft` operation remains in the
+server contract; this transport does not add a typed SDK method for it.
 New LO applications install only the SDK and use `createLoBotClient(options)`.
 Existing transport, webhook decoder and error imports remain aliases of the SDK.
 
