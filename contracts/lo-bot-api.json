@@ -569,18 +569,6 @@
       ],
       "quota": "KindSend"
     },
-    "proposeBusinessDraft": {
-      "implemented": true,
-      "parameters": [
-        "business_connection_id",
-        "chat_id",
-        "lo_context",
-        "lo_draft_reason",
-        "lo_request_id",
-        "text"
-      ],
-      "quota": "KindSend"
-    },
     "readBusinessMessage": {
       "implemented": true,
       "parameters": [
