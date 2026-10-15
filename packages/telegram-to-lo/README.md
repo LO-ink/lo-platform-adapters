@@ -4,10 +4,18 @@ Explicit migration bridge for an existing Telegram WebApp application opened
 inside LO. This is the inbound direction. `@lo-ink/adapter-telegram` is the
 outbound direction: it runs code written against the LO SDK inside Telegram.
 
+Version 0.1.6 also accepts Mini App SDK 0.23 and uses compatibility package
+0.20.5. The alias implementation and supported host surface are unchanged.
+
 ## Minimal transition
 
-Remove the official Telegram script from the LO entrypoint. Before importing the
-existing application, install the bridge:
+Use this installer only when the host exposes `LO.WebApp` without an existing
+`Telegram.WebApp`. Current LO clients already inject both aliases, so their
+applications use the host-provided surface directly and must not call this
+installer again. It never replaces an existing `Telegram.WebApp`.
+
+For a host exposing only `LO.WebApp`, remove the official Telegram script from
+the LO entrypoint. Before importing the existing application, install the bridge:
 
 ```ts
 import { installTelegramCompatibility } from "@lo-ink/adapter-telegram-to-lo";

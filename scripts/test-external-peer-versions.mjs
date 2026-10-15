@@ -17,14 +17,14 @@ const run = (command, args, cwd = root) =>
   execFileSync(command, args, { cwd, stdio: "inherit", timeout: 120_000 });
 const npm = (args, cwd = root) => run("npm", args, cwd);
 const manifests = Object.fromEntries(
-  ["compat", "telegram", "vk"].map((name) => [
+  ["compat", "telegram", "telegram-to-lo", "vk"].map((name) => [
     name,
     JSON.parse(readFileSync(join(root, "packages", name, "package.json"))),
   ]),
 );
 try {
   const archives = {};
-  for (const name of ["telegram", "vk"]) {
+  for (const name of ["telegram", "telegram-to-lo", "vk"]) {
     const manifest = manifests[name];
     npm([
       "pack",
@@ -42,6 +42,10 @@ try {
   // 0.20.1 is the first published 0.20 SDK; 0.20.0 does not exist.
   const rows = [
     ["telegram", ["0.19.2", "0.20.1", "0.21.0", "0.22.0", "0.23.0"]],
+    [
+      "telegram-to-lo",
+      ["0.19.2", "0.20.1", "0.21.0", "0.22.0", "0.23.0", "0.23.1"],
+    ],
     ["vk", ["0.19.0", "0.20.1", "0.21.0", "0.22.0", "0.23.0"]],
   ];
   for (const [name, versions] of rows) {
@@ -77,7 +81,7 @@ try {
         installed(manifests[name].name).version,
         manifests[name].version,
       );
-      if (name === "telegram")
+      if (name !== "vk")
         assert.equal(
           installed("@lo-ink/adapter-webapp-compat").version,
           manifests.compat.version,
@@ -86,7 +90,9 @@ try {
       const suites =
         name === "telegram"
           ? ["test/adapters.test.mjs", "test/webapp-contract.test.mjs"]
-          : ["packages/vk/test/adapter.test.mjs"];
+          : name === "telegram-to-lo"
+            ? ["packages/telegram-to-lo/test/compatibility.test.mjs"]
+            : ["packages/vk/test/adapter.test.mjs"];
       for (const [index, source] of suites.entries()) {
         const suite = readFileSync(join(root, source), "utf8")
           .replaceAll(
@@ -97,7 +103,10 @@ try {
             '"../packages/telegram/dist/index.js"',
             '"@lo-ink/adapter-telegram"',
           )
-          .replaceAll('"../dist/index.js"', '"@lo-ink/adapter-vk"');
+          .replaceAll(
+            '"../dist/index.js"',
+            JSON.stringify(manifests[name].name),
+          );
         const path = `protocol-${index}.test.mjs`;
         writeFileSync(join(consumer, path), suite);
         run(
@@ -114,16 +123,16 @@ assert.equal(typeof document,'undefined');
 for (const name of ['Telegram','VK','LO'])
  Object.defineProperty(globalThis,name,{configurable:true,get(){throw Error('SSR global access: '+name);}});
 const adapter=await import(${JSON.stringify(manifests[name].name)});
-assert.equal(typeof adapter.createAdapter,'function');
+assert.equal(typeof adapter.${name === "telegram-to-lo" ? "installTelegramCompatibility" : "createAdapter"},'function');
 `,
       );
       run(process.execPath, ["ssr.mjs"], consumer);
       writeFileSync(
         join(consumer, "check.ts"),
         `import { createMiniAppClient, type MiniAppAdapter } from '@lo-ink/miniapp-sdk';
-import { createAdapter } from ${JSON.stringify(manifests[name].name)};
-${name === "telegram" ? "const adapter=createAdapter({Telegram:{WebApp:{initData:'synthetic',version:'9.6'}}});" : "const adapter=await createAdapter({launchData:'opaque'});"}
-if(adapter){const value:MiniAppAdapter=adapter;const client=createMiniAppClient(value);void client.call('ready',undefined);client.dispose();}
+import { ${name === "telegram-to-lo" ? "installTelegramCompatibility" : "createAdapter"} } from ${JSON.stringify(manifests[name].name)};
+${name === "telegram-to-lo" ? "const lease=installTelegramCompatibility({LO:{WebApp:{initData:'synthetic',capabilities:['ready']}}});lease?.dispose();" : name === "telegram" ? "const adapter=createAdapter({Telegram:{WebApp:{initData:'synthetic',version:'9.6'}}});" : "const adapter=await createAdapter({launchData:'opaque'});"}
+${name === "telegram-to-lo" ? "" : "if(adapter){const value:MiniAppAdapter=adapter;const client=createMiniAppClient(value);void client.call('ready',undefined);client.dispose();}"}
 `,
       );
       for (const resolution of ["NodeNext", "Bundler"])

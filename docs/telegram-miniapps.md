@@ -4,8 +4,11 @@ There are two separate migration paths.
 
 ## Retain existing WebApp calls initially
 
-Use `@lo-ink/adapter-telegram-to-lo` on your LO entrypoint. Remove the official
-Telegram script there and install the bridge before importing existing code:
+Current LO clients already expose `Telegram.WebApp`; use that host-provided
+surface directly. Do not call the installer over an existing `Telegram.WebApp`.
+For a host exposing only `LO.WebApp`, use `@lo-ink/adapter-telegram-to-lo` on your
+LO entrypoint. Remove the official Telegram script there and install the bridge
+before importing existing code:
 
 ```ts
 import { installTelegramCompatibility } from "@lo-ink/adapter-telegram-to-lo";
