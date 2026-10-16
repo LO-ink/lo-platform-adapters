@@ -91,8 +91,97 @@ try {
         (file) => file.includes("node_modules/") || file.includes("vendor/"),
       ),
     );
-    archives.push(archive);
+    if (folder !== "telegram-to-lo") archives.push(archive);
   }
+  const inbound = join(temp, "inbound-consumer");
+  mkdirSync(inbound);
+  writeFileSync(
+    join(inbound, "package.json"),
+    JSON.stringify({ private: true, type: "module" }),
+  );
+  const inboundManifest = JSON.parse(
+    readFileSync(join(root, "packages/telegram-to-lo/package.json"), "utf8"),
+  );
+  const inboundArchive = join(
+    temp,
+    `lo-ink-adapter-telegram-to-lo-${inboundManifest.version}.tgz`,
+  );
+  run(
+    "npm",
+    [
+      "install",
+      "--ignore-scripts",
+      "--strict-peer-deps",
+      "--no-audit",
+      "--no-fund",
+      "--cache",
+      join(temp, "cache"),
+      "@lo-ink/miniapp-sdk@0.23.0",
+      inboundArchive,
+    ],
+    inbound,
+  );
+  const inboundSuite = readFileSync(
+    join(root, "packages/telegram-to-lo/test/compatibility.test.mjs"),
+    "utf8",
+  ).replaceAll('"../dist/index.js"', '"@lo-ink/adapter-telegram-to-lo"');
+  writeFileSync(join(inbound, "compatibility.test.mjs"), inboundSuite);
+  run(
+    process.execPath,
+    ["--test", "--test-timeout=10000", "compatibility.test.mjs"],
+    inbound,
+  );
+  writeFileSync(
+    join(inbound, "check.ts"),
+    `import { installTelegramCompatibility } from '@lo-ink/adapter-telegram-to-lo';
+const lease=installTelegramCompatibility({onError: ({error}) => { void error.code; }});
+void lease?.dispose();
+`,
+  );
+  for (const resolution of ["NodeNext", "Bundler"])
+    run(
+      process.execPath,
+      [
+        join(root, "node_modules/typescript/bin/tsc"),
+        "--noEmit",
+        "--strict",
+        "--target",
+        "ES2022",
+        "--module",
+        resolution === "NodeNext" ? "NodeNext" : "ESNext",
+        "--moduleResolution",
+        resolution,
+        "check.ts",
+      ],
+      inbound,
+    );
+  const oldPeer = join(temp, "inbound-old-peer");
+  mkdirSync(oldPeer);
+  writeFileSync(
+    join(oldPeer, "package.json"),
+    JSON.stringify({ private: true, type: "module" }),
+  );
+  assert.throws(
+    () =>
+      run(
+        "npm",
+        [
+          "install",
+          "--ignore-scripts",
+          "--strict-peer-deps",
+          "--no-audit",
+          "--no-fund",
+          "--cache",
+          join(temp, "cache"),
+          "@lo-ink/miniapp-sdk@0.22.3",
+          inboundArchive,
+        ],
+        oldPeer,
+      ),
+    (error) =>
+      /ERESOLVE/.test(String(error.stderr)) &&
+      /\^0\.23\.0/.test(String(error.stderr)),
+  );
   // Test the native installation independently: a full workspace can hide a
   // missing dependency or accidental compatibility import.
   const nativeConsumer = join(temp, "native-consumer");
@@ -156,12 +245,11 @@ if (typeof createMiniAppClient !== 'function' || createAdapter() !== null) throw
 import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
 import { createBotClient } from '@lo-ink/bot-sdk';
 import { createAdapter as createLo } from '@lo-ink/adapter-lo';
-import { installTelegramCompatibility } from '@lo-ink/adapter-telegram-to-lo';
 import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
 import { detectAdapter as detectVk } from '@lo-ink/adapter-vk';
 import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 if (typeof createMiniAppClient !== 'function' || typeof createBotClient !== 'function' || typeof createLoHttpBotTransport !== 'function') throw new Error('Package export missing');
-if (createLo() !== null || installTelegramCompatibility() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
+if (createLo() !== null || createTelegram() !== null || await detectVk() !== null) throw new Error('SSR discovery must be inert');
 `,
   );
   run(process.execPath, ["check.mjs"], consumer);
@@ -170,13 +258,11 @@ if (createLo() !== null || installTelegramCompatibility() !== null || createTele
     `
 import { createMiniAppClient } from '@lo-ink/miniapp-sdk';
 import { createAdapter as createLo } from '@lo-ink/adapter-lo';
-import { installTelegramCompatibility } from '@lo-ink/adapter-telegram-to-lo';
 import { createAdapter as createTelegram } from '@lo-ink/adapter-telegram';
 import { createAdapter as createVk } from '@lo-ink/adapter-vk';
 import { createBotClient } from '@lo-ink/bot-sdk';
 import { createLoHttpBotTransport } from '@lo-ink/bot-http-lo';
 const lo = createLo(); if (lo) createMiniAppClient(lo);
-const migration = installTelegramCompatibility(); migration?.dispose();
 const telegram = createTelegram(); if (telegram) createMiniAppClient(telegram);
 async function vk() { createMiniAppClient(await createVk()); }
 const bot = createBotClient(createLoHttpBotTransport({ token: '1:fixture' }));

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   mkdirSync,
@@ -42,10 +42,7 @@ try {
   // 0.20.1 is the first published 0.20 SDK; 0.20.0 does not exist.
   const rows = [
     ["telegram", ["0.19.2", "0.20.1", "0.21.0", "0.22.0", "0.23.0"]],
-    [
-      "telegram-to-lo",
-      ["0.19.2", "0.20.1", "0.21.0", "0.22.0", "0.23.0", "0.23.1"],
-    ],
+    ["telegram-to-lo", ["0.23.0", "0.23.1"]],
     ["vk", ["0.19.0", "0.20.1", "0.21.0", "0.22.0", "0.23.0"]],
   ];
   for (const [name, versions] of rows) {
@@ -81,7 +78,7 @@ try {
         installed(manifests[name].name).version,
         manifests[name].version,
       );
-      if (name !== "vk")
+      if (name === "telegram")
         assert.equal(
           installed("@lo-ink/adapter-webapp-compat").version,
           manifests.compat.version,
@@ -131,7 +128,7 @@ assert.equal(typeof adapter.${name === "telegram-to-lo" ? "installTelegramCompat
         join(consumer, "check.ts"),
         `import { createMiniAppClient, type MiniAppAdapter } from '@lo-ink/miniapp-sdk';
 import { ${name === "telegram-to-lo" ? "installTelegramCompatibility" : "createAdapter"} } from ${JSON.stringify(manifests[name].name)};
-${name === "telegram-to-lo" ? "const lease=installTelegramCompatibility({LO:{WebApp:{initData:'synthetic',capabilities:['ready']}}});lease?.dispose();" : name === "telegram" ? "const adapter=createAdapter({Telegram:{WebApp:{initData:'synthetic',version:'9.6'}}});" : "const adapter=await createAdapter({launchData:'opaque'});"}
+${name === "telegram-to-lo" ? "const lease=installTelegramCompatibility({scope:{},onError:({error})=>{void error.code;}});if(lease){const settled:Promise<void>=lease.dispose();void settled;}" : name === "telegram" ? "const adapter=createAdapter({Telegram:{WebApp:{initData:'synthetic',version:'9.6'}}});" : "const adapter=await createAdapter({launchData:'opaque'});"}
 ${name === "telegram-to-lo" ? "" : "if(adapter){const value:MiniAppAdapter=adapter;const client=createMiniAppClient(value);void client.call('ready',undefined);client.dispose();}"}
 `,
       );
@@ -157,6 +154,33 @@ ${name === "telegram-to-lo" ? "" : "if(adapter){const value:MiniAppAdapter=adapt
       );
     }
   }
+  const unsupported = join(temp, "inbound-unsupported-peer");
+  mkdirSync(unsupported);
+  writeFileSync(
+    join(unsupported, "package.json"),
+    JSON.stringify({ private: true, type: "module" }),
+  );
+  const rejected = spawnSync(
+    "npm",
+    [
+      "install",
+      "--ignore-scripts",
+      "--strict-peer-deps",
+      "--engine-strict",
+      "--no-audit",
+      "--no-fund",
+      "--cache",
+      join(temp, "cache"),
+      "@lo-ink/miniapp-sdk@0.22.3",
+      archives["telegram-to-lo"],
+    ],
+    { cwd: unsupported, encoding: "utf8", timeout: 120_000 },
+  );
+  assert.equal(rejected.error, undefined);
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /ERESOLVE/);
+  assert.match(rejected.stderr, /peer @lo-ink\/miniapp-sdk@"\^0\.23\.0"/);
+  console.log("Inbound 0.2 rejects unsupported SDK 0.22.3");
 } finally {
   rmSync(temp, { recursive: true, force: true });
 }
