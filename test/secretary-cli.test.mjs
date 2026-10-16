@@ -1,36 +1,41 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, access, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
 
-test("Secretary CLI rejects incomplete and invalid configuration before creating private state", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "lo-secretary-cli-"));
+const notice =
+  "Native secretary review example is retired; preserve old state and use bot-owned approval.";
+test("retired CLI refuses valid and invalid legacy setups without network or state changes", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "lo-secretary-cli-retired-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const state = join(directory, "state.json");
+  const before =
+    '{"schema":1,"jobs":[{"requestId":"original","outcome":"unknown"}]}';
+  await writeFile(state, before, { mode: 0o600 });
+  await writeFile(`${state}.lock`, "existing synthetic lock", { mode: 0o600 });
   const token = "42:synthetic-test-token";
   const valid = { LO_BOT_TOKEN: token, LO_SECRETARY_STATE: state };
-  const cases = [
+  const guard = join(directory, "guard.mjs");
+  await writeFile(
+    guard,
+    'globalThis.fetch = () => { process.stderr.write("UNEXPECTED_NETWORK"); throw new Error("No network expected"); };',
+  );
+  for (const configuration of [
     {},
-    { LO_BOT_TOKEN: token },
-    { ...valid, LO_SECRETARY_MODE: "invalid" },
-    { ...valid, LO_SECRETARY_AUTO_CHATS: "invalid-json" },
-    { ...valid, LO_SECRETARY_AUTO_CHATS: "{}" },
-    {
-      ...valid,
-      LO_SECRETARY_AUTO_CHATS: '[{"connectionId":"invalid","chatId":"42"}]',
-    },
-    { ...valid, LO_SECRETARY_MODE: "webhook" },
-    { ...valid, PORT: "0" },
-  ];
-  for (const configuration of cases) {
+    valid,
+    { ...valid, LO_SECRETARY_MODE: "poll" },
+    { ...valid, LO_SECRETARY_MODE: "webhook", LO_WEBHOOK_SECRET: "synthetic" },
+    { ...valid, LO_SECRETARY_AUTO_CHATS: "not-json", PORT: "0" },
+    { ...valid, LO_SECRETARY_STATE: join(directory, "missing", "state.json") },
+  ]) {
     const result = spawnSync(
       process.execPath,
       [
+        "--import",
+        guard,
         fileURLToPath(
           new URL("../examples/secretary/run.mjs", import.meta.url),
         ),
@@ -49,63 +54,17 @@ test("Secretary CLI rejects incomplete and invalid configuration before creating
     assert.ifError(result.error);
     assert.equal(result.status, 1);
     assert.equal(result.stdout, "");
-    assert.equal(
-      result.stderr.trim(),
-      "Secretary reference bot stopped; inspect configuration and private state.",
-    );
+    assert.equal(result.stderr.trim(), notice);
     assert.equal(result.stderr.includes(token), false);
-    await assert.rejects(access(state), { code: "ENOENT" });
+    assert.equal(await readFile(state, "utf8"), before);
+    assert.equal(
+      await readFile(`${state}.lock`, "utf8"),
+      "existing synthetic lock",
+    );
+    assert.deepEqual((await readdir(directory)).sort(), [
+      "guard.mjs",
+      "state.json",
+      "state.json.lock",
+    ]);
   }
-});
-
-test("Secretary configuration preserves canonical positive int64 chat strings", () => {
-  const source = readFileSync(
-    new URL("../examples/secretary/run.mjs", import.meta.url),
-    "utf8",
-  );
-  const configSource = source.slice(
-    source.indexOf("function config()"),
-    source.indexOf("async function main()"),
-  );
-  assert.ok(configSource.startsWith("function config()"));
-  function configure(chatId) {
-    return runInNewContext(configSource + "\nconfig()", {
-      process: {
-        env: {
-          LO_BOT_TOKEN: "synthetic",
-          LO_SECRETARY_STATE: "unused-state.json",
-          LO_SECRETARY_AUTO_CHATS: JSON.stringify([
-            { connectionId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", chatId },
-          ]),
-        },
-      },
-    });
-  }
-  for (const id of [
-    "1",
-    "999999999999999",
-    "9007199254740991",
-    "9007199254740993",
-    "9223372036854775807",
-  ])
-    assert.equal(configure(id).bindings[0].chatId, id);
-  for (const id of [
-    "9223372036854775808",
-    "10000000000000000000",
-    "0",
-    "-1",
-    "01",
-    "1.0",
-    "+1",
-    " 1",
-    "1 ",
-    "1e3",
-    "",
-    1,
-    9007199254740992,
-    null,
-    {},
-    [],
-  ])
-    assert.throws(() => configure(id), /Invalid explicit per-chat opt-in/);
 });

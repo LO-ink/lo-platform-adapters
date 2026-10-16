@@ -46,7 +46,7 @@ requires `data-miniapp-host="lo-native"` or `"telegram"` on its
 entry document. It loads the external host script only for the explicit Telegram
 entrypoint; missing native support inside LO never selects another provider.
 
-Bot HTTP compatibility transport 0.6 re-exports the implementation from bot-sdk 0.5 and supports video, cached audio, homogeneous photo/document albums, metadata/download streams and typed callback/app-data updates. Installation capabilities are optional on older servers. See [the transport API](packages/bot-http-lo/README.md).
+Bot HTTP compatibility transport 0.8 re-exports the implementation from bot-sdk 0.6 and supports video, cached audio, homogeneous photo/document albums, metadata/download streams and typed callback/app-data updates. Installation capabilities are optional on older servers. See [the transport API](packages/bot-http-lo/README.md).
 
 Compatibility guides live here: [bot migration](docs/telegram-bots.md), [mini-app migration](docs/telegram-miniapps.md), and [API mapping](docs/lo-vs-telegram.md).
 
