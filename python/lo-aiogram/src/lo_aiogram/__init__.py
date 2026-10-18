@@ -15,7 +15,9 @@ from aiogram.exceptions import (
 from aiogram.types import InputFile
 from aiohttp import ClientError, ClientTimeout, FormData
 
-__all__ = ["LoAiohttpSession"]
+from .capabilities import capabilities, invalidate_capabilities
+
+__all__ = ["LoAiohttpSession", "capabilities"]
 
 
 class LoAiohttpSession(AiohttpSession):
@@ -130,6 +132,7 @@ class LoAiohttpSession(AiohttpSession):
                 "[redacted]",
             ) from None
         except TelegramAPIError as error:
+            metadata: dict[str, object] = {"lo_status": status_code}
             message = error.message or "LO Bot API request failed"
             message = message.replace(bot.token, "[redacted]")
             message = re.sub(
@@ -141,7 +144,6 @@ class LoAiohttpSession(AiohttpSession):
             except (ValueError, TypeError, AttributeError):
                 parameters = {}
             if isinstance(parameters, dict):
-                metadata = {}
                 reason = parameters.get("reason")
                 parameter = parameters.get("parameter")
                 if reason in (
@@ -153,6 +155,14 @@ class LoAiohttpSession(AiohttpSession):
                     metadata["lo_reason"] = reason
                 if isinstance(parameter, str) and parameter.isidentifier():
                     metadata["lo_parameter"] = parameter
-                for attribute, value in metadata.items():
-                    setattr(error, attribute, value)
+                if metadata.get("lo_reason") == "feature_disabled":
+                    invalidate_capabilities(bot)
+                if (
+                    status_code == 429
+                    and json.loads(content).get("error_code") == 429
+                    and parameters.get("safe_to_retry") is True
+                ):
+                    metadata["lo_safe_to_retry"] = True
+            for attribute, value in metadata.items():
+                setattr(error, attribute, value)
             raise error from None
