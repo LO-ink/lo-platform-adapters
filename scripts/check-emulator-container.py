@@ -1,6 +1,7 @@
 """Exercise the default command of an already-built emulator image; never publish it."""
 
 import argparse
+import asyncio
 import json
 import subprocess
 import time
@@ -8,6 +9,14 @@ import tomllib
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+from aiogram import Bot, Dispatcher, F
+from aiogram.exceptions import TelegramNetworkError
+from aiogram.filters import CommandStart
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiohttp import ClientSession
+from lo_aiogram import LoAiohttpSession
+from lo_aiogram.compat import LoBotCompat
 
 
 def docker(*args):
@@ -17,6 +26,118 @@ def docker(*args):
 def check(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+async def check_bot(image_id):
+    container = docker(
+        "create",
+        "--publish",
+        "127.0.0.1::8080",
+        image_id,
+        "lo-bot-api-emulator",
+        "--host",
+        "0.0.0.0",
+        "--enable-control",
+        "--journal",
+        "/home/emulator/requests.jsonl",
+    )
+    try:
+        docker("start", container)
+        port = json.loads(docker("inspect", container))[0]["NetworkSettings"]["Ports"]["8080/tcp"][
+            0
+        ]["HostPort"]
+        base, token = "http://127.0.0.1:" + port, "123456:" + "A" * 43
+        bot = Bot(
+            token, session=LoAiohttpSession(base_url=base, allow_insecure_loopback=True, timeout=3)
+        )
+        try:
+            for _ in range(100):
+                try:
+                    await bot.get_me()
+                    break
+                except TelegramNetworkError:
+                    await asyncio.sleep(0.1)
+            else:
+                raise RuntimeError("Configured fixture did not become ready")
+            bot.session.middleware(LoBotCompat())
+            dispatcher, handled = Dispatcher(), asyncio.Event()
+
+            @dispatcher.message(CommandStart())
+            async def start(message):
+                await message.reply(
+                    "Choose",
+                    disable_notification=True,
+                    reply_markup=InlineKeyboardMarkup(
+                        inline_keyboard=[[InlineKeyboardButton(text="RU", callback_data="ru")]]
+                    ),
+                )
+                handled.set()
+
+            @dispatcher.callback_query(F.data == "ru")
+            async def button(query):
+                await query.message.edit_reply_markup(
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[])
+                )
+                await query.answer()
+                handled.set()
+
+            polling = asyncio.create_task(
+                dispatcher.start_polling(
+                    bot, handle_signals=False, close_bot_session=False, polling_timeout=1
+                )
+            )
+            message = {
+                "message_id": 10,
+                "date": 1,
+                "chat": {"id": 42, "type": "private"},
+                "from": {"id": 42, "is_bot": False, "first_name": ""},
+                "text": "/start",
+            }
+            try:
+                async with ClientSession() as client:
+                    for update in [
+                        {"message": message},
+                        {
+                            "callback_query": {
+                                "id": "button",
+                                "from": message["from"],
+                                "chat_instance": "chat",
+                                "message": message,
+                                "data": "ru",
+                            }
+                        },
+                    ]:
+                        handled.clear()
+                        async with client.post(
+                            base + "/__fixture/updates", json={"token": token, "update": update}
+                        ) as response:
+                            check(response.status == 200, "Synthetic update enqueue failed")
+                        await asyncio.wait_for(handled.wait(), 5)
+            finally:
+                await dispatcher.stop_polling()
+                await asyncio.wait_for(polling, 5)
+            receipt = json.loads(
+                docker(
+                    "exec",
+                    container,
+                    "lo-bot-api-emulator",
+                    "verdict",
+                    "/home/emulator/requests.jsonl",
+                    "--require-response",
+                    "--require-method",
+                    "editMessageReplyMarkup",
+                    "--require-method",
+                    "answerCallbackQuery",
+                )
+            )
+            check(receipt["ok"] is True, "Container bot journal verdict failed")
+            log = docker("logs", container)
+            check(token not in log and "Choose" not in log, "Container logs leaked request data")
+            return receipt
+        finally:
+            await bot.session.close()
+    finally:
+        docker("rm", "--force", container)
 
 
 def main():
@@ -110,11 +231,13 @@ def main():
             json.loads(docker("inspect", container))[0]["State"]["Running"],
             "Container exited during smoke",
         )
+        bot_receipt = asyncio.run(check_bot(image_id))
         print(
             json.dumps(
                 {
                     "image_id": image_id,
                     **runtime,
+                    "bot_journal": bot_receipt,
                     "checks": [
                         "default-command",
                         "loopback-only",
@@ -123,6 +246,9 @@ def main():
                         "stub-501",
                         "non-root",
                         "installed-version",
+                        "real-aiogram-polling-reply",
+                        "callback-and-keyboard-edit",
+                        "disk-journal-cli-verdict",
                     ],
                 },
                 sort_keys=True,
