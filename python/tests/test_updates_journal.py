@@ -89,6 +89,55 @@ class Updates(Fixture):
             await first
         self.assertEqual(await self.emulator._update_queues.poll(TOKEN, {}), [])
 
+    async def test_cancelled_http_poll_releases_ownership_before_original_timeout(self):
+        first = asyncio.create_task(self.bot.get_updates(timeout=2))
+        await asyncio.sleep(0.05)
+        first.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await first
+        await asyncio.sleep(0.2)
+        self.assertEqual(await self.bot.get_updates(), [])
+        identity = await self.emulator.enqueue_update({"message": MESSAGE}, token=TOKEN)
+        self.assertEqual((await self.bot.get_updates())[0].update_id, identity)
+
+    async def test_empty_url_webhook_removal_works_through_aiogram(self):
+        await self.bot.set_webhook("https://example.invalid/hook")
+        self.assertTrue(await self.bot.set_webhook(""))
+        self.assertEqual((await self.bot.get_webhook_info()).url, "")
+        self.assertEqual(await self.bot.get_updates(), [])
+
+    async def test_unknown_update_filters_refused_without_changing_existing_filter(self):
+        await self.bot.get_updates(allowed_updates=["message"])
+        with self.assertRaises(TelegramBadRequest):
+            await self.bot.get_updates(allowed_updates=["messages"])
+        identity = await self.emulator.enqueue_update({"message": MESSAGE}, token=TOKEN)
+        self.assertEqual((await self.bot.get_updates())[0].update_id, identity)
+        await self.bot.get_updates(offset=identity + 1)
+        await self.bot.set_webhook("https://example.invalid/hook", allowed_updates=["poll"])
+        with self.assertRaises(TelegramBadRequest):
+            await self.bot.set_webhook(
+                "https://example.invalid/other", allowed_updates=["messages"]
+            )
+        info = await self.bot.get_webhook_info()
+        self.assertEqual(info.url, "https://example.invalid/hook")
+        self.assertEqual(info.allowed_updates, ["poll"])
+        await self.bot.delete_webhook()
+        self.assertEqual(await self.bot.get_updates(allowed_updates=["chat_member"]), [])
+
+    async def test_webhook_connection_limits_are_validated_before_state_changes(self):
+        await self.bot.set_webhook("https://example.invalid/hook", max_connections=1)
+        for connections in (0, 101):
+            with self.subTest(connections=connections), self.assertRaises(TelegramBadRequest):
+                await self.bot.set_webhook(
+                    "https://example.invalid/other", max_connections=connections
+                )
+            self.assertEqual(
+                (await self.bot.get_webhook_info()).url, "https://example.invalid/hook"
+            )
+        self.assertTrue(
+            await self.bot.set_webhook("https://example.invalid/hook", max_connections=100)
+        )
+
     async def test_real_polling_bot_answers_start_and_button_and_inline_without_400(self):
         self.bot.session.middleware(LoBotCompat())
         dispatcher, received = Dispatcher(), asyncio.Event()
@@ -171,7 +220,7 @@ class Updates(Fixture):
 
         @dispatcher.message()
         async def reply(message):
-            await message.reply("Reply", disable_notification=True)
+            await message.reply("Reply", disable_notification=True, protect_content=True)
 
         with self.assertRaises(TelegramBadRequest):
             await dispatcher.feed_raw_update(self.bot, {"update_id": 1, "message": MESSAGE})

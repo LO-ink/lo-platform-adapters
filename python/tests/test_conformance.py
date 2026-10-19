@@ -37,10 +37,10 @@ class Conformance(Fixture):
         self.assertEqual(message.text, "First")
         self.assertEqual(message.chat.id, 42)
 
-    async def test_unsupported_reply_fields_are_not_silently_removed(self):
+    async def test_unsupported_send_fields_are_not_silently_removed(self):
         message = await self.bot.send_message(42, "First")
         with self.assertRaises(TelegramBadRequest):
-            await message.reply("Reply", disable_notification=True)
+            await message.reply("Reply", disable_notification=True, protect_content=True)
         self.assertIn("reply_parameters", self.emulator.requests[-1]["fields"])
         self.assertIn("disable_notification", self.emulator.requests[-1]["fields"])
         self.assertEqual(len(self.emulator.requests), 2)
@@ -107,10 +107,9 @@ class Conformance(Fixture):
         self.assertEqual(result[0].message_id, result[1].message_id)
         self.assertEqual(result[0].caption, "First")
 
-    async def test_chat_action_501_never_returns_fabricated_success(self):
+    async def test_chat_action_reaches_transport_for_each_request(self):
         for _ in range(2):
-            with self.assertRaises(TelegramServerError):
-                await self.bot.send_chat_action(42, "upload_video")
+            self.assertTrue(await self.bot.send_chat_action(42, "upload_video"))
         self.assertEqual(
             [row["method"] for row in self.emulator.requests], ["sendChatAction", "sendChatAction"]
         )

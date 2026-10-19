@@ -41,13 +41,13 @@ class Compat(Fixture):
         self.compat = LoBotCompat()
         self.bot.session.middleware(self.compat)
 
-    async def test_reply_fields_removed_once_original_method_unchanged(self):
+    async def test_unsupported_fields_removed_once_original_method_unchanged(self):
         first = await self.bot.send_message(42, "first")
         with self.assertLogs("lo_aiogram.compat", level="WARNING") as logs:
-            await first.reply("second", disable_notification=True)
-            await first.reply("third", disable_notification=True)
-        self.assertEqual(sum("reply_parameters" in line for line in logs.output), 1)
-        self.assertEqual(sum("disable_notification" in line for line in logs.output), 1)
+            await first.reply("second", disable_notification=True, protect_content=True)
+            await first.reply("third", disable_notification=True, protect_content=True)
+        self.assertEqual(sum("protect_content" in line for line in logs.output), 1)
+        self.assertEqual(sum("disable_notification" in line for line in logs.output), 0)
         self.assertTrue(all(row["status"] == 200 for row in self.emulator.requests))
         original = SendMessage(
             chat_id=42, text="keep", disable_notification=True, custom_extra="private"
@@ -228,6 +228,14 @@ class Compat(Fixture):
             await self.bot.send_video(42, OneShot(filename="one.mp4"))
 
     async def test_only_structured_cosmetic_501_is_a_local_noop(self):
+        original = self.emulator.validate
+
+        def legacy(method, fields, uploads):
+            if method == "sendChatAction":
+                raise ApiRefusal("legacy", 501, {"reason": "method_not_implemented"})
+            return original(method, fields, uploads)
+
+        self.emulator.validate = legacy
         self.assertTrue(await self.bot.send_chat_action(42, "typing"))
         self.assertTrue(await self.bot.send_chat_action(42, "typing"))
         self.assertEqual(len(self.emulator.requests), 1)

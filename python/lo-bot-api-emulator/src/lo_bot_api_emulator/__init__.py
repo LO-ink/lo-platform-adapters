@@ -23,6 +23,7 @@ MODELED_METHODS = {
     "getMyCommands",
     "getWebhookInfo",
     "sendMessage",
+    "sendChatAction",
     "sendPhoto",
     "sendVideo",
     "sendDocument",
@@ -401,6 +402,59 @@ class LoBotApiEmulator:
             result["caption"] = caption
         return result
 
+    @classmethod
+    def validate_reply(cls, fields):
+        # Validate the request shape; fixture storage cannot establish target existence.
+        if fields.get("reply_parameters") is not None:
+            try:
+                reply = cls.decoded(fields["reply_parameters"])
+            except (ValueError, TypeError):
+                raise ApiRefusal("Bad Request: can't parse reply parameters JSON object") from None
+            if not isinstance(reply, dict):
+                raise ApiRefusal("Bad Request: can't parse reply parameters JSON object")
+            for key in reply:
+                if key not in ("message_id", "chat_id", "allow_sending_without_reply"):
+                    raise ApiRefusal(
+                        "Bad Request: reply_parameters." + key + " is not supported yet",
+                        parameters={
+                            "reason": "unsupported_parameter",
+                            "parameter": "reply_parameters." + key,
+                        },
+                    )
+            identity = reply.get("message_id")
+            if type(identity) is not int or not 0 < identity < 2**31:
+                raise ApiRefusal("Bad Request: message to be replied not found")
+            if "chat_id" in reply and (
+                isinstance(reply["chat_id"], bool)
+                or not isinstance(reply["chat_id"], (int, str))
+                or re.fullmatch(r"[+-]?[0-9]+", str(reply["chat_id"])) is None
+                or int(reply["chat_id"]) != int(fields["chat_id"])
+            ):
+                raise ApiRefusal("Bad Request: reply_parameters.chat_id is not supported yet")
+            if (
+                "allow_sending_without_reply" in reply
+                and reply["allow_sending_without_reply"] is not None
+                and type(reply["allow_sending_without_reply"]) is not bool
+            ):
+                raise ApiRefusal("Bad Request: can't parse reply parameters JSON object")
+        elif "reply_to_message_id" in fields:
+            value = fields["reply_to_message_id"]
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float, str))
+                or isinstance(value, str)
+                and re.fullmatch(r"[+-]?[0-9]+", value.strip()) is None
+                or isinstance(value, float)
+                and (not math.isfinite(value) or not value.is_integer())
+            ):
+                raise ApiRefusal("Bad Request: message to be replied not found")
+            try:
+                identity = int(value)
+            except ValueError:
+                raise ApiRefusal("Bad Request: message to be replied not found") from None
+            if not 0 < identity < 2**31:
+                raise ApiRefusal("Bad Request: message to be replied not found")
+
     def validate(self, method, fields, uploads):
         definition = CONTRACT["methods"].get(method)
         if definition is None:
@@ -502,6 +556,24 @@ class LoBotApiEmulator:
                 or not 0 < int(message) < 2**63
             ):
                 raise ApiRefusal("Bad Request: MESSAGE_ID_INVALID")
+        if "reply_parameters" in allowed:
+            self.validate_reply(fields)
+        if method == "sendChatAction":
+            if fields.get("action") not in (
+                "typing",
+                "choose_sticker",
+                "find_location",
+                "record_voice",
+                "upload_voice",
+                "record_video",
+                "record_video_note",
+                "upload_photo",
+                "upload_video",
+                "upload_document",
+                "upload_video_note",
+            ):
+                raise ApiRefusal("Bad Request: wrong parameter action in request")
+            return True
         markup = fields.get("reply_markup")
         if markup is not None:
             try:
@@ -526,7 +598,7 @@ class LoBotApiEmulator:
                     "audio_uploads": False,
                     "single_attach": self.single_attach,
                     "media_groups": True,
-                    "chat_actions": False,
+                    "chat_actions": True,
                 },
             }
         if method == "getUpdates":
@@ -707,7 +779,14 @@ class LoBotApiEmulator:
             result = self.validate(method, fields, uploads)
             token = request.match_info["token"]
             if method == "getUpdates" and not result:
-                result = await self._update_queues.poll(token, fields)
+                # Scope disconnect cancellation to long polling, never to committed sends.
+                result = await self._update_queues.poll(
+                    token,
+                    fields,
+                    disconnected=lambda: (
+                        request.transport is None or request.transport.is_closing()
+                    ),
+                )
             elif method == "getWebhookInfo":
                 result = self._update_queues.info(token)
             elif method == "setWebhook":

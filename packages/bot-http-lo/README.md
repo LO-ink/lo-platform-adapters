@@ -91,3 +91,5 @@ Native keyboard values in bot-sdk 0.4 use camelCase. The transport converts them
 LO app-data service updates may use a zero stored-message sentinel. The adapter omits `appData.messageId` in that case and preserves the real update cursor and sender; it does not invent a message identifier. Signed LO paths from `getFile` are encoded as one file-route component.
 
 `@lo-ink/bot-http-lo/contract` exports the server-generated public API contract. Generation verifies committed server source and rejects dirty source before export. Private repository and file provenance are not published. Contract verification does not identify or qualify a deployed server.
+
+The bundled server contract includes reply/silent send options and `sendChatAction`. These describe the server API; the 0.6 native SDK peer exposes a smaller typed surface and does not gain new methods from this contract update. Python handlers can use the updated `lo-aiogram` session for these options.

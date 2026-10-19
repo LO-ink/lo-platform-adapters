@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/bot-http-lo",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Compatibility exports for native HTTP transport in LO Bot SDK",
   "type": "module",
   "license": "MIT",

@@ -35,9 +35,13 @@ Queue exact synthetic payloads with `await emulator.enqueue_update(update, token
 
 `getUpdates` supports limit, offset acknowledgements, negative tail offsets and persistent `allowed_updates`. Empty calls wait for the requested integer timeout (0–50 seconds), waking when a matching update arrives. Returned updates remain available until acknowledged by offset; consumers must handle redelivery. A webhook and polling are mutually exclusive (409); a second active poll for the same token also receives 409 without changing the first poll’s filter.
 
+Delivery filters reject unknown update names and accept the server's known names even when this fixture cannot enqueue that kind. An HTTP long poll releases its ownership when the client disconnects, checked at most every 100 ms while waiting. This cancellation applies only to polling; it does not interrupt sends or webhook delivery.
+
 For a bot in another process, explicitly start the isolated fixture with `--enable-control`. POST `{ "token": "<synthetic token>", "update": { "message": { ... } } }` to `/__fixture/updates`; the response returns its update ID. The endpoint is disabled by default and has a 64 KiB body limit. Never expose this unauthenticated test control to a production network or use real bot credentials.
 
 `setWebhook` stores the URL, secret and update filter. Matching queued updates are POSTed with `X-Telegram-Bot-Api-Secret-Token`. Only 2xx acknowledges/removes an update; failure, timeout and redirect retain it. Delivery is serialized per bot, without a background retry loop. Enqueueing another update, setting a webhook, `await emulator.deliver_updates(token=token)`, or POSTing `{ "token": "<synthetic token>" }` to `/__fixture/deliver` explicitly attempts pending delivery. `getWebhookInfo` reports pending count; `deleteWebhook(drop_pending_updates=True)` clears the queue. Destination HTTPS is required; local webhook tests may explicitly set `allow_insecure_loopback_webhooks=True` / `--allow-insecure-loopback-webhooks` for literal loopback HTTP. This is a deterministic delivery fixture, not a model of production retry schedules, authentication or exactly-once delivery.
+
+An empty or omitted `setWebhook` URL removes the webhook, including `await bot.set_webhook("")` through aiogram. A supplied `max_connections` must be an integer from 1 to 100; the fixture still delivers serially.
 
 ## Disk journal and verdict
 
@@ -75,3 +79,9 @@ The main-only **Publish emulator container** workflow builds a Linux amd64 image
 After `make python-install`, run the smoke locally from the repository root with `python scripts/check-emulator-container.py lo-bot-api-emulator`. It also runs a real aiogram polling/reply/button flow against a configured instance of that image and checks the on-disk journal inside the container. It uses synthetic input and removes only the container it started.
 
 This workflow uses the repository's `GITHUB_TOKEN`; no Docker Hub credentials are needed. A new GHCR package is private by default. Publication does not establish public availability: an owner must separately enable public visibility and verify an anonymous pull of the recorded digest before announcing a public image. No image is claimed published merely because this workflow exists. The pinned base does not make rebuilds deterministic: Python build and runtime dependencies still use version ranges. Use the recorded registry digest to identify an actual release.
+
+## Current send options
+
+The packaged contract accepts `disable_notification`, `reply_parameters` and legacy `reply_to_message_id`/`allow_sending_without_reply` on message sends. The fixture validates reply IDs in 1–2147483647 and same-chat reply parameters, and refuses unsupported nested quote fields before committing synthetic assets or messages. Top-level boolean options follow the server’s permissive binding: invalid values are ignored rather than causing a refusal; the nested reply boolean is type-checked. It does not reconstruct reply target content, establish target existence, or produce real notification sounds. Strict aiogram handlers can now use `message.reply(..., disable_notification=True)` without compatibility middleware; unsupported fields such as `protect_content` still refuse.
+
+`sendChatAction` validates the eleven supported action names and returns true for a valid synthetic target. `getMe.capabilities.chat_actions` is true. This validates the request; it does not render a native activity indicator. Legacy structured501 behavior remains covered through explicit refusal fixtures.

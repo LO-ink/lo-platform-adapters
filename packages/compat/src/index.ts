@@ -489,7 +489,6 @@ function execute(
     case "openLink":
       return command(webApp, "openLink", input.url, {
         try_instant_view: input.instantView,
-        try_browser: input.externalBrowser,
       });
     case "sendData":
       return command(webApp, "sendData", input.data);
