@@ -70,7 +70,7 @@ try {
         ),
       ),
     );
-    assert.equal(compatManifest.version, "0.20.6");
+    assert.equal(compatManifest.version, "0.20.7");
     const suite = readFileSync(
       join(root, "packages/lo/test/native.test.mjs"),
       "utf8",

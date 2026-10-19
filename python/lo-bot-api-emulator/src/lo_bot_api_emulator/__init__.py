@@ -206,6 +206,135 @@ class LoBotApiEmulator:
         return json.loads(value) if isinstance(value, str) else value
 
     @staticmethod
+    def scalar_text(value):
+        # Match the server's top-level Args.String binding, not nested JSON strings.
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (bool, int)) or isinstance(value, float) and math.isfinite(value):
+            return json.dumps(value)
+        return None
+
+    @staticmethod
+    def bound_integer(value):
+        # Args.Int64 accepts form integers and exact whole JSON numbers.
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, str):
+            if re.fullmatch(r"[+-]?[0-9]+", value.strip()) is None:
+                return None
+            value = int(value)
+        elif isinstance(value, float):
+            if not math.isfinite(value) or not value.is_integer() or abs(value) >= 2**53:
+                return None
+            value = int(value)
+        if type(value) is int and -(2**63) <= value < 2**63:
+            return value
+        return None
+
+    def validate_inline_answer(self, fields):
+        query = self.scalar_text(fields.get("inline_query_id"))
+        results = self.decoded(fields.get("results"))
+        cache = self.bound_integer(fields.get("cache_time"))
+        if (
+            not query
+            or not query.strip()
+            or results is not None
+            and (not isinstance(results, list) or len(results) > 50)
+            or cache is not None
+            and cache < 0
+        ):
+            raise ApiRefusal("Bad Request: invalid inline answer")
+        identities = set()
+        for item in results or []:
+            if not isinstance(item, dict) or any(
+                item.get(key) is not None and not isinstance(item[key], str)
+                for key in ("type", "id", "title", "photo_file_id", "caption")
+            ):
+                raise ApiRefusal("Bad Request: invalid inline result")
+            identity, kind = item.get("id") or "", item.get("type")
+            if (
+                not 1 <= len(identity.encode("utf-8")) <= 64
+                or identity in identities
+                or kind not in ("article", "photo")
+            ):
+                raise ApiRefusal("Bad Request: invalid inline result ID or type")
+            identities.add(identity)
+            content = item.get("input_message_content")
+            if content is not None or kind == "article":
+                text = content.get("message_text") if isinstance(content, dict) else None
+                if not isinstance(text, str) or not 1 <= len(text.encode("utf-16-le")) // 2 <= 4096:
+                    raise ApiRefusal("Bad Request: invalid inline message text")
+            if kind == "article":
+                title = item.get("title") or ""
+                if not 1 <= len(title.encode("utf-16-le")) // 2 <= 256:
+                    raise ApiRefusal("Bad Request: invalid inline title")
+            elif len((item.get("caption") or "").encode("utf-16-le")) // 2 > 1024:
+                raise ApiRefusal("Bad Request: inline caption is too long")
+            reference = item.get("photo_file_id")
+            if reference or kind == "photo":
+                # Fixture references stand in for the server's signed photo references.
+                self.source("photo", reference, {})
+
+    @classmethod
+    def validate_callback_answer(cls, fields):
+        query = cls.scalar_text(fields.get("callback_query_id"))
+        text, url = (cls.scalar_text(fields.get(key, "")) for key in ("text", "url"))
+        cache = cls.bound_integer(fields.get("cache_time", 0))
+        alert = fields.get("show_alert", False)
+        valid_alert = (
+            type(alert) is bool
+            or type(alert) is int
+            and -(2**63) <= alert < 2**63
+            or isinstance(alert, str)
+            and alert.strip()
+            in ("1", "0", "t", "T", "true", "TRUE", "True", "f", "F", "false", "FALSE", "False")
+        )
+        if (
+            not query
+            or text is None
+            or len(text) > 200
+            or url is None
+            or cache is None
+            or not 0 <= cache <= 86400
+            or not valid_alert
+        ):
+            raise ApiRefusal("Bad Request: invalid callback answer")
+        text.encode("utf-8")
+        if not url:
+            return
+        if len(url.encode("utf-8")) > 2048 or any(ord(c) < 32 or 127 <= ord(c) <= 159 for c in url):
+            raise ApiRefusal("Bad Request: invalid callback URL")
+        # Match Go net/url host/zone escapes without Python's stricter IP/NFKC checks.
+        parts = re.fullmatch(
+            r"(?:https?|tg)://([^/?#]+)([^?#]*)(?:\?[^#]*)?(?:#(.*))?", url, re.I | re.ASCII
+        )
+        if parts is None:
+            raise ApiRefusal("Bad Request: invalid callback URL")
+        host, path, fragment = parts.groups()
+        allowed_host = (
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~!$&'()*+,;=:[]<>\""
+        )
+        bracket = host.rfind("]") if host.startswith("[") else -1
+        port = host[bracket + 1 :] if host.startswith("[") else host[host.rfind(":") :]
+        if (
+            host.startswith("[")
+            and bracket < 0
+            or (host.startswith("[") or ":" in host)
+            and re.fullmatch(r"(?::[0-9]*)?", port) is None
+            or any(ord(c) < 128 and c != "%" and c not in allowed_host for c in host)
+            or any(re.search(r"%(?![0-9A-Fa-f]{2})", part) for part in (host, path, fragment or ""))
+        ):
+            raise ApiRefusal("Bad Request: invalid callback URL")
+        zone = host.find("%25", 0, bracket) if bracket >= 0 else -1
+        for escape in re.finditer(r"%([0-9A-Fa-f]{2})", host):
+            byte = int(escape[1], 16)
+            in_zone = zone >= 0 and zone <= escape.start() < bracket
+            if byte == 37:
+                continue
+            if (in_zone and chr(byte) not in allowed_host + " ") or (not in_zone and byte < 128):
+                raise ApiRefusal("Bad Request: invalid callback URL")
+
+    @staticmethod
     def valid_keyboard_url(value, *, https_only=False):
         if (
             not isinstance(value, str)
@@ -648,15 +777,7 @@ class LoBotApiEmulator:
                 self.next_id += 1
             return result
         if method == "answerInlineQuery":
-            query = fields.get("inline_query_id")
-            results = self.decoded(fields.get("results"))
-            if (
-                not isinstance(query, str)
-                or not query
-                or not isinstance(results, list)
-                or len(results) > 50
-            ):
-                raise ApiRefusal("Bad Request: invalid inline answer")
+            self.validate_inline_answer(fields)
             return True
         if method == "sendMediaGroup":
             assert isinstance(media, list)
@@ -761,9 +882,7 @@ class LoBotApiEmulator:
             "answerCallbackQuery",
         ):
             if method == "answerCallbackQuery":
-                query = fields.get("callback_query_id")
-                if not isinstance(query, str) or not query:
-                    raise ApiRefusal("Bad Request: invalid callback answer")
+                self.validate_callback_answer(fields)
             if method == "setMyCommands":
                 commands = self.decoded(fields.get("commands"))
                 if not isinstance(commands, list) or len(commands) > 100:

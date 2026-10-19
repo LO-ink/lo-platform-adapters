@@ -4,6 +4,8 @@ A local request-contract fixture for bot migrations. It loads the same generated
 
 Modeled edits and deletions require valid int64 targets; callback answers require a query ID. Keyboard objects must have a modeled shape. Album items resolve their own exact attachment references, including parts named `photo` or `document`. Malformed caption structures receive a JSON 400 refusal, and refused requests do not commit synthetic assets or advance message IDs. These checks validate request inputs; they do not prove a target exists or that a caller is authorized to modify it.
 
+Inline answers validate article/photo results, unique IDs (1–64 UTF-8 bytes), required article titles/content, UTF-16 text/caption limits and known fixture photo references. Omitted/null results are an empty menu. Callback answers validate the 200-character text limit, URL scheme/credentials/controls and 2048-byte limit, alert options and cache time (0–86400 seconds). Invalid answers receive JSON 400 and fail the journal verdict. Query ownership, expiry and real signed references still require a live server.
+
 ```sh
 pip install lo-bot-api-emulator
 lo-bot-api-emulator --port 8080

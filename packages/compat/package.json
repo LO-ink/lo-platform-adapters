@@ -1,6 +1,6 @@
 {
   "name": "@lo-ink/adapter-webapp-compat",
-  "version": "0.20.6",
+  "version": "0.20.7",
   "description": "Shared wire translation for explicit external WebApp integrations",
   "type": "module",
   "license": "MIT",
@@ -22,7 +22,8 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "test": "node --test test/*.test.mjs"
   },
   "peerDependencies": {
     "@lo-ink/miniapp-sdk": "^0.19.2 || ^0.20.0 || ^0.21.0 || ^0.22.0 || ^0.23.0"

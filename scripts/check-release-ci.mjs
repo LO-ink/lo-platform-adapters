@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const repository = "LO-ink/lo-platform-adapters";
 export function selectReleaseRun(runs, workflowId, revision, triggerId) {
@@ -35,6 +36,9 @@ export async function verifyReleaseCi({
   triggerId,
   token,
   request = fetch,
+  beforePublish = false,
+  sourceRepository,
+  execute = execFileSync,
 }) {
   if (
     !/^[a-f0-9]{40}$/.test(revision) ||
@@ -44,6 +48,8 @@ export async function verifyReleaseCi({
     throw new Error(
       "Missing release identity or GitHub Actions read authorization",
     );
+  if (beforePublish && sourceRepository !== repository)
+    throw new Error("Unexpected release repository");
   const get = async (path) => {
     const response = await request(
       `https://api.github.com/repos/${repository}/${path}`,
@@ -90,6 +96,20 @@ export async function verifyReleaseCi({
     if (trigger.run_attempt !== latest.run_attempt)
       throw new Error("Adapter checks evidence changed during verification");
   }
+  if (beforePublish) {
+    const head = execute("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 15000,
+    }).trim();
+    if (head !== revision)
+      throw new Error("Release checkout does not match its revision");
+    const main = await get("commits/main");
+    if (main?.sha !== revision)
+      throw new Error(
+        "Release source is stale or current main could not be verified",
+      );
+  }
   return latest;
 }
 
@@ -97,12 +117,17 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
+  const args = process.argv.slice(2);
+  if (args.length && (args.length !== 1 || args[0] !== "--before-publish"))
+    throw new Error("Unexpected release check arguments");
   const run = await verifyReleaseCi({
     revision: process.env.RELEASE_SHA,
     triggerId: process.env.RELEASE_RUN_ID
       ? Number(process.env.RELEASE_RUN_ID)
       : undefined,
     token: process.env.GH_TOKEN,
+    beforePublish: args[0] === "--before-publish",
+    sourceRepository: process.env.GITHUB_REPOSITORY,
   });
   console.log(`Verified Adapter checks run ${run.id} for ${run.head_sha}.`);
 }
