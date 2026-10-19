@@ -268,6 +268,8 @@ async function vk() { createMiniAppClient(await createVk()); }
 const bot = createBotClient(createLoHttpBotTransport({ token: '1:fixture' }));
 const reply = bot.sendMessage({conversationId:'1', text:'Reply', replyToMessageId:'1', disableNotification:true});
 const activity: Promise<boolean> = bot.sendChatAction({conversationId:'1', action:'typing'});
+const edited = bot.editReplyMarkup({conversationId:'1', messageId:'2', replyMarkup:{inlineKeyboard:[]}});
+void edited.then(message => { const sender: string | undefined = message.senderId; return sender; });
 void reply; void activity; void vk;
 `,
   );
