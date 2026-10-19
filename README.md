@@ -1,94 +1,60 @@
 # LO integrations and migration adapters
 
-Native LO transports belong to their SDKs. New Mini Apps install only
-`@lo-ink/miniapp-sdk` and call `createLoClient`; new bots install only
-`@lo-ink/bot-sdk` and call `createLoBotClient`. The native adapter packages below
-preserve existing imports through pure SDK re-exports. External host globals,
-script loaders and compatibility wire shapes remain in explicit integrations.
+New LO Mini Apps use `createLoClient` from `@lo-ink/miniapp-sdk`; new bots use
+`createLoBotClient` from `@lo-ink/bot-sdk`. Neither needs an adapter package.
 
-| Package                              | Direction and responsibility                                          |
-| ------------------------------------ | --------------------------------------------------------------------- |
-| `@lo-ink/adapter-lo`                 | Compatibility re-export of native Mini App SDK transport              |
-| `@lo-ink/adapter-telegram`           | LO SDK → Telegram host, with an explicit bounded script loader        |
-| `@lo-ink/adapter-telegram-to-lo` 0.2 | Explicit supported WebApp facade → canonical native LO client         |
-| `@lo-ink/adapter-webapp-compat`      | Shared translation implementation used only by compatibility adapters |
-| `@lo-ink/adapter-vk`                 | LO SDK → official VK Bridge; limited documented capabilities          |
-| `@lo-ink/bot-http-lo`                | Compatibility re-export of native Bot SDK HTTP transport              |
+| Package                          | Integration                                                  |
+| -------------------------------- | ------------------------------------------------------------ |
+| `@lo-ink/adapter-lo`             | Existing imports for the native Mini App SDK transport       |
+| `@lo-ink/bot-http-lo`            | Existing imports for the native Bot SDK HTTP transport       |
+| `@lo-ink/adapter-telegram`       | LO SDK application running in Telegram                       |
+| `@lo-ink/adapter-telegram-to-lo` | Selected Telegram WebApp calls on LO's canonical native port |
+| `@lo-ink/adapter-webapp-compat`  | Shared implementation for external WebApp adapters           |
+| `@lo-ink/adapter-vk`             | LO SDK application using official VK Bridge                  |
 
-Each adapter reports actual host capabilities. Unsupported operations reject;
-no native failure is replayed through a different transport. Browser discovery
-is inert during server rendering. Signed launch data stays opaque and requires
-server verification for its actual provider.
+Select external providers explicitly. Adapters report actual host capabilities;
+unsupported operations reject, and failed native requests never switch transport.
+Imports are inert during server rendering. Verify signed launch data on your
+backend with the issuing provider's key, preserving the signed bytes.
+
+## Guides and examples
+
+- [Telegram bots](docs/telegram-bots.md), [lo-aiogram](python/lo-aiogram/README.md)
+  and the [Bot API emulator](python/lo-bot-api-emulator/README.md).
+- [Existing Telegram Mini Apps](packages/telegram-to-lo/README.md),
+  [Telegram host adapter](packages/telegram/README.md), and
+  [LO/Telegram differences](docs/lo-vs-telegram.md).
+- [Bot HTTP transport](packages/bot-http-lo/README.md) and
+  [secretary operations](docs/secretary.md).
+
+`examples/vanilla.ts` uses native LO only. `examples/cross-platform.ts` selects
+`lo-native` or `telegram` from the entry document's `data-miniapp-host` attribute;
+only the Telegram entrypoint loads its host script.
+
+The [Bot API contract](contracts/lo-bot-api.json) is generated from verified,
+committed server source. Generation rejects dirty source and omits private source
+provenance from public artifacts. Fixture success does not establish production
+storage, authentication, transcoding, permissions or provider/device behavior.
 
 ## Development
 
+Use Node.js 22.13+ and Python 3.11+:
+
 ```sh
-npm ci
-npm test
-npm run check
-npm run format:check
-npm run test:package
+make install
+make ci
+make python-install python-ci
+make bot-frameworks strict-contract
+make emulator-container
 ```
 
-Tests cover native protocol validation, document/session isolation, cancellation,
-timeouts, late results, permission denial, events and compatibility leases.
-Packed-package tests install the native SDK and LO adapter **alone**, proving
-that the native application needs no compatibility package. Separate consumers check the inbound SDK 0.23 facade and the other adapters through their public exports and TypeScript declarations.
+Set `PYTHON` to select another Python interpreter. The gates check formatting,
+lint, types, dependency boundaries, coverage, packed consumers, vulnerabilities
+and secrets. Python checks also cover wheel/sdist consumers and require at least
+85% branch-inclusive coverage. JavaScript requires 85% lines/statements, 90%
+functions and 75% branches.
 
-[Choosing an integration](docs/migration.md) describes explicit provider selection.
-
-The bot migration suites use actual pinned Telegraf/grammY and aiogram clients
-against a loopback HTTP recorder. They verify request contracts, not every
-production server method. Hosted acceptance remains separate evidence.
-
-`examples/vanilla.ts` is native LO only. The optional cross-platform example
-requires `data-miniapp-host="lo-native"` or `"telegram"` on its
-entry document. It loads the external host script only for the explicit Telegram
-entrypoint; missing native support inside LO never selects another provider.
-
-Bot HTTP compatibility transport 0.8 re-exports the implementation from bot-sdk 0.6 and supports video, cached audio, homogeneous photo/document albums, metadata/download streams and typed callback/app-data updates. Installation capabilities are optional on older servers. See [the transport API](packages/bot-http-lo/README.md).
-
-Compatibility guides live here: [bot migration](docs/telegram-bots.md), [mini-app migration](docs/telegram-miniapps.md), and [API mapping](docs/lo-vs-telegram.md).
-
-Python integrations: [lo-aiogram](python/lo-aiogram/README.md) and the [LO Bot API emulator](python/lo-bot-api-emulator/README.md). Actual aiogram handlers and pinned Telegraf/grammY clients run against the generated strict contract; unsupported requests must fail explicitly. Unmodeled methods return 501. The fixture does not validate real media content or reproduce authentication, storage, transcoding and production permissions.
-
-The [contract](contracts/lo-bot-api.json) defines the request and response shapes verified by the migration suites. Public exports require verified, committed server source; dirty source is rejected before writing any contract. Generation verifies private source provenance internally, then omits it from public artifacts. The server owns generation and its standard Go test checks source drift.
-
-## Quality checks
-
-The current native examples are checked separately against the published Mini App
-SDK 0.23 with `make native-examples` (also part of `make ci`). This private
-consumer uses Node.js 22.13 or newer and executes the actual vanilla example's
-native lifecycle tests. The root workspace's Mini SDK 0.22 pin is one development graph; external
-adapters are also checked as isolated packed consumers against their supported
-SDK versions. New native applications use SDK 0.23 directly. The native re-export supports SDK 0.23. Its packed consumers are checked
-against SDK 0.22.2, 0.22.3 and 0.23.0. Native
-calls never fall back to another provider.
-
-Telegram and VK external adapters support SDK 0.23 as well as their existing
-0.19–0.22 ranges. The package gate runs strict installs, provider protocol tests,
-SSR imports and NodeNext/Bundler type checks at each published minor floor:
-Telegram 0.19.2, VK 0.19.0, and both 0.20.1, 0.21.0, 0.22.0 and 0.23.0.
-Telegram uses shared translator 0.20.6; VK uses official Bridge 3.0.2. This tests
-the adapter contracts with controlled hosts, not live provider authentication or
-device behavior.
-
-Run `make install` and `make ci` with Node.js 22.13 or newer. The same targets run
-in GitHub Actions. CI checks formatting, ESLint (including typed promises),
-TypeScript, dependency cycles and package boundaries, tests, published package
-contents, vulnerable dependencies and secrets. English documentation and comments
-are enforced; unfinished development notes and retired repository URLs fail CI.
-
-Coverage includes unimported production files and fails below 85% lines and
-statements, 90% functions, or 75% branches. Reports are uploaded as CI artifacts.
-
-Use `make python-install python-ci` for Ruff, mypy, Python tests with at least 85%
-branch-inclusive coverage, distribution checks and pip-audit. `make bot-frameworks
-strict-contract` verifies Telegraf and grammY against the explicit LO contract;
-`make emulator-container` verifies the packaged emulator image. Use `PYTHON` to
-select an installed Python 3.11+ interpreter.
-
-Repository policy checks require Python 3 for Python comment tokenization. YAML
-comments are parsed as YAML; embedded scripts and localized scalar values retain
-their own language. LO credentials are checked by the root Gitleaks configuration
-and a synthetic scanner regression before each repository scan.
+Packed consumers check public exports, strict peer installation, SSR and
+NodeNext/Bundler types at supported SDK floors. See each adapter's README for its
+version range. `make native-examples` (included in `make ci`) checks the native
+examples against Mini App SDK 0.23 separately from the root's 0.22 development pin.

@@ -1,65 +1,40 @@
 # Secretary operations and recovery
 
 Start with the [owner-consent guide](https://github.com/LO-ink/lo-developer-tools/blob/main/docs/secretary.md).
-Use the [typed final-send example](../examples/secretary-approved-reply.ts) only
-after the bot authenticates approval of an exact persisted proposal and atomically
-claims it. An owner ID alone is not approval. AI proposals and their approval
-belong to the bot; LO retains exact templates, schedules, chat scope and rights.
-The [old native-review runnable](../examples/secretary) is retired and stops
-before network or state I/O. Never convert its old jobs into sends.
+The [typed send example](../examples/secretary-approved-reply.ts) is the final
+step after the bot authenticates approval of an exact persisted proposal and
+atomically claims it. Connection access or an owner ID alone is not approval.
+Native proposal APIs are retired; [old entrypoints](../examples/secretary) stop
+before network or state I/O. Preserve their state and never convert old jobs into
+sends. LO retains exact templates, schedules, chat scope and independent rights.
 
-SDK 0.6.0 removes the native proposal method. Earlier versions or transitional
-server contracts may still list it; that does not make it a supported new flow.
-HTTP adapter 0.8.0 requires SDK ^0.6.0; upgrade both packages together.
+## Operations
 
-## Transport operations
+| SDK operation    | LO HTTP method                          | Purpose                                                            |
+| ---------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| `getConnection`  | `getBusinessConnection`                 | Inspect this bot's connection                                      |
+| `sendText`       | `sendMessage` with business context     | Send a permitted delegated reply                                   |
+| `sendMedia`      | `sendBusinessMedia`                     | Reuse scoped source-media IDs                                      |
+| `editText`       | `editMessageText` with business context | Edit a permitted reply                                             |
+| `markRead`       | `readBusinessMessage`                   | Exercise the separate read right                                   |
+| `deleteMessages` | `deleteBusinessMessages`                | Delete permitted messages; `deleteAll` requires its separate right |
+| `getFile`        | `getFile` with secretary descriptor     | Obtain an expiring media download                                  |
 
-| SDK operation    | LO HTTP method                                     | Purpose                                                                         |
-| ---------------- | -------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `getConnection`  | `getBusinessConnection`                            | Inspect the connection accessible to this bot                                   |
-| `sendText`       | `sendMessage` with business connection/context     | Send directly under independently granted rights                                |
-| `sendMedia`      | `sendBusinessMedia`                                | Send scoped media file IDs                                                      |
-| `editText`       | `editMessageText` with business connection/context | Edit a permitted delegated reply                                                |
-| `markRead`       | `readBusinessMessage`                              | Mark read only under its separate right                                         |
-| `deleteMessages` | `deleteBusinessMessages`                           | Delete authorized messages; `deleteAll` requires its separate destructive right |
-| `getFile`        | `getFile` with scoped secretary descriptor         | Obtain a bounded, expiring media download                                       |
+Use delivered decimal-string IDs and context exactly. Do not substitute peer IDs
+for conversation IDs or use cached connection data to authorize a write.
+Parameter availability is defined by [the contract](../packages/bot-http-lo/contract.json).
 
-Parameter availability comes from [contract.json](../packages/bot-http-lo/contract.json).
-The transport translates decimal-string IDs and the delivered context. It does
-not authorize owner consent locally. Do not construct internal service requests,
-substitute a peer ID for a conversation ID or treat a cached grant as permission.
+## Recovery
 
-## Failure fixtures
+Persist the exact request ID, context and body before writing; reuse them after
+an uncertain result. Cancellation can occur after server commit. Respect quota
+delays, stop obsolete work after permanent denials/conflicts, and keep unknown
+outcomes visible until reconciled. An expired receipt never authorizes a new
+request key; check your backend's receipt retention and recovery windows.
+Persist processing progress before advancing a poll cursor or acknowledging a
+webhook. Logs contain safe outcome metadata, not message bodies, media URLs,
+credentials or AI prompts.
 
-`test/secretary-reference.test.mjs` verifies that retired entry points refuse
-without network, payload reads or changes to old state and locks.
-`test/secretary-contract-fixtures.test.mjs` runs reusable synthetic wire fixtures
-through the production lossless decoder and webhook parser. The fixtures use no real
-account, token or private conversation data.
-
-```sh
-npm ci
-npm run build
-npm run check
-node --test test/secretary-reference.test.mjs test/secretary-contract-fixtures.test.mjs
-```
-
-A local fixture proves serialization and failure handling, not deployed server
-permissions. Run the full consent and excluded-chat matrix on staging before a
-live rollout. Approval of a bot-owned proposal is authenticated and persisted by
-the bot; native connection access alone does not approve a pending answer.
-
-## Recovery rules
-
-Persist an exact request before writing; reuse its ID, context and body after
-uncertainty. Persist processing progress before advancing the poll offset or
-acknowledging a webhook. Stop obsolete work after permanent denials or conflicts.
-Respect quota delays without changing request identity. Keep unknown outcomes
-visible until reconciled, including a client cancellation after server commit.
-
-Confirm action-receipt snapshot retention and recovery windows for your deployed
-backend; an SDK upgrade does not add server retention. An expired receipt never
-authorizes a replacement request key. Canonical chat history has its own lifecycle.
-Retain old native draft receipts separately; never replay them as bot-owned sends.
-Logs and exports contain safe outcome codes and metadata, never message bodies,
-media URLs, credentials or AI prompts.
+Local decoder and retired-entrypoint tests use synthetic data. They verify wire
+shapes and failure handling; exercise consent and excluded-chat cases on staging
+before a live rollout.

@@ -1,4 +1,3 @@
-/** Compatibility exports for the native transport owned by Mini App SDK. */
 export {
   createNativeAdapter,
   createNativeAdapter as createAdapter,

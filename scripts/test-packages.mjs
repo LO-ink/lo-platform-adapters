@@ -266,7 +266,9 @@ const lo = createLo(); if (lo) createMiniAppClient(lo);
 const telegram = createTelegram(); if (telegram) createMiniAppClient(telegram);
 async function vk() { createMiniAppClient(await createVk()); }
 const bot = createBotClient(createLoHttpBotTransport({ token: '1:fixture' }));
-void bot; void vk;
+const reply = bot.sendMessage({conversationId:'1', text:'Reply', replyToMessageId:'1', disableNotification:true});
+const activity: Promise<boolean> = bot.sendChatAction({conversationId:'1', action:'typing'});
+void reply; void activity; void vk;
 `,
   );
   for (const resolution of ["NodeNext", "Bundler"]) {
