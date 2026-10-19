@@ -1,95 +1,40 @@
 # `@lo-ink/bot-http-lo`
 
-Version 0.8 re-exports the native HTTP implementation from `@lo-ink/bot-sdk` 0.6.
-Upgrade both packages together; the 0.5 SDK peer is no longer accepted.
-The SDK no longer exposes native secretary proposal/draft operations.
-Bot-owned AI approval uses delegated message actions; LO exact templates remain.
-The unrelated ordinary server `sendMessageDraft` operation remains in the
-server contract; this transport does not add a typed SDK method for it.
-New LO applications install only the SDK and use `createLoBotClient(options)`.
-Existing transport, webhook decoder and error imports remain aliases of the SDK.
+Compatibility exports for the HTTP transport in `@lo-ink/bot-sdk`. Version 0.9
+requires SDK `^0.7.0`; upgrade both packages together. New bots install only the
+SDK and call `createLoBotClient`.
 
-Server-side HTTP transport for `@lo-ink/bot-sdk` and the LO Bot API.
+Existing applications can keep their transport imports:
 
 ```ts
 import { createBotClient } from "@lo-ink/bot-sdk";
 import { createLoHttpBotTransport } from "@lo-ink/bot-http-lo";
 
-const transport = createLoHttpBotTransport({
-  token: process.env.LO_BOT_TOKEN!,
-});
-const bot = createBotClient(transport);
-
-const identity = await bot.getIdentity();
-await bot.sendMessage({
-  conversationId: "9007199254740993",
-  text: `Hello from ${identity.name}`,
-});
+const token = process.env.LO_BOT_TOKEN;
+if (!token) throw new Error("LO_BOT_TOKEN is required");
+const bot = createBotClient(createLoHttpBotTransport({ token }));
+await bot.sendMessage({ conversationId: "9007199254740993", text: "Hello" });
 ```
 
-The default endpoint is `https://api.lo.ink`. A custom endpoint must use HTTPS. Tests may explicitly enable plain HTTP for an exact loopback host:
+The exports `createLoHttpBotTransport`, `decodeLoBotUpdate`,
+`parseLoBotWebhookUpdate` and `HttpBotError` are aliases of the SDK implementation;
+this package adds no transport state. See the
+[Bot SDK](https://github.com/LO-ink/lo-bot-sdk#readme) for supported methods, media
+limits, reply/silent options, chat actions, errors and cancellation.
 
-```ts
-createLoHttpBotTransport({
-  token: "1:test-token",
-  baseUrl: "http://127.0.0.1:8080",
-  allowInsecureLoopback: true,
-});
-```
+The default API root is `https://api.lo.ink`. Custom roots require HTTPS; tests
+may explicitly allow HTTP for `127.0.0.1`, `localhost` or `::1`. Requests preserve
+64-bit identifiers, refuse redirects and never retry implicitly. Authenticate
+webhooks before parsing them; neither decoder authenticates a caller.
 
-Every request is a single POST to `/bot<TOKEN>/<method>`. Redirects are refused because the credential is in the path. The transport never retries, never includes credential URLs in errors, preserves decimal identifiers as strings, and forwards cancellation to `fetch`.
+The transport also implements the SDK's secretary extension. Connection consent
+and exact source context remain server-enforced; an owner ID or cached connection
+is not authorization. Bot-owned proposals require authenticated approval and a
+persisted request ID/context/body before sending. Never replay retired native
+proposal jobs. See the
+[secretary guide](https://github.com/LO-ink/lo-developer-tools/blob/main/docs/secretary.md).
 
-`HttpBotError` exposes the canonical SDK error `code`, HTTP `status`, upstream `platformCode`, and optional `retryAfterSeconds`. Messages are intentionally generic. Version 0.3 adds a bounded, sanitized
-`BadRequest.description` for decisions such as invalidating a cached file ID.
-
-## Secretary extension
-
-The transport also implements `SecretaryTransport` for
-`createSecretaryClient(transport)`. Business events returned by `getUpdates` are
-normalized to the SDK's secretary union; ordinary bot calls keep their existing
-wire behavior. `parseLoBotWebhookUpdate(rawBody)` uses the same decoder and
-preserves 64-bit IDs. Authenticate the webhook secret before calling it; parsing
-alone never authenticates a request. `decodeLoBotUpdate` accepts an already parsed
-object, whose unsafe numeric IDs are rejected rather than rounded.
-
-Connection IDs, source context and stable request keys scope every delegated
-write. Context identifiers and bulk message IDs are serialized as decimal strings;
-credential generation and owner identity are derived by the server, never from
-caller-provided grant fields. Receiving, reading, sending and deleting remain
-independent. `deleteAll` is explicit and requires its separate owner permission.
-
-The [native review reference](https://github.com/LO-ink/lo-platform-adapters/tree/main/examples/secretary#readme)
-is retired. Preserve its old state; never convert pending jobs to sends.
-AI replies and approval belong to the bot; LO retains templates, schedules and
-delegated permissions. See the [bot-owned reply guide](https://github.com/LO-ink/lo-platform-adapters/blob/main/docs/secretary.md).
-
-## Media, keyboards and errors
-
-Use the current supported `@lo-ink/bot-sdk` peer version. The transport builds exact Bot API JSON for `replyMarkup` and
-`setChatMenuButton`, and multipart for uploaded photo/document/voice inputs. It
-lets fetch set the multipart boundary; `reply_markup` is a JSON string. Streams
-are bounded before any network request and cancelled with the request signal.
-File IDs are reused as JSON; photo results select the final largest size.
-
-API failures are SDK `RateLimited`, `NotAllowed`, `BadRequest` or `Unavailable`
-instances, also instances of the existing `HttpBotError` export. Existing codes
-and retryAfterSeconds remain compatible; RateLimited adds retryAfterSec.
-BadRequest.description is bounded and redacts credentials and URLs. No implicit
-retry exists. Voice upload uses AAC/M4A/MP4; voice captions and media URLs fail
-before fetch. See bot-sdk's README for limits and cache invalidation.
-
-## Files and video (0.4.0)
-
-The transport supports native video uploads with upload-only metadata and thumbnail, cached audio, homogeneous photo/document albums, `getFile`, and bounded streaming downloads. Media sends use inline keyboards. Albums carry one LO message ID shared by all returned items; deleting that ID deletes the album.
-
-Video calls allow a 90-second preparation deadline by default. Explicit client or per-call deadlines take precedence. File downloads use authenticated paths, reject redirects and traversal, and accept a persistent `signal`; consume or cancel the returned stream. Missing file paths remain absent.
-
-A genuine API 429 refusal sets `details.safeToRetry`; unknown HTTP failures do not. Use the native SDK's explicit `retryRejected` only with replayable input. Network failures and 5xx sends are never repeated automatically.
-
-Native keyboard values in bot-sdk 0.4 use camelCase. The transport converts them to the server contract and checks the serialized keyboard size before fetch. See bot-sdk’s upgrade note before updating 0.3 applications.
-
-LO app-data service updates may use a zero stored-message sentinel. The adapter omits `appData.messageId` in that case and preserves the real update cursor and sender; it does not invent a message identifier. Signed LO paths from `getFile` are encoded as one file-route component.
-
-`@lo-ink/bot-http-lo/contract` exports the server-generated public API contract. Generation verifies committed server source and rejects dirty source before export. Private repository and file provenance are not published. Contract verification does not identify or qualify a deployed server.
-
-The bundled server contract includes reply/silent send options and `sendChatAction`. These describe the server API; the 0.6 native SDK peer exposes a smaller typed surface and does not gain new methods from this contract update. Python handlers can use the updated `lo-aiogram` session for these options.
+`@lo-ink/bot-http-lo/contract` exports the server-generated API contract, including
+methods outside the typed SDK surface. Generation verifies committed server
+source and rejects dirty source before export; private source provenance is
+omitted. This contract does not identify or qualify a deployed server.
