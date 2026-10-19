@@ -9,7 +9,7 @@ from weakref import WeakSet
 from aiogram.client.default import Default
 from aiogram.client.session.middlewares.base import BaseRequestMiddleware
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter, TelegramServerError
-from aiogram.methods import SendDocument, SendMediaGroup, SendPhoto, SendVideo
+from aiogram.methods import SendAudio, SendDocument, SendMediaGroup, SendPhoto, SendVideo
 from aiogram.types import BufferedInputFile, FSInputFile, InputFile
 
 from lo_aiogram import LoAiohttpSession
@@ -96,6 +96,13 @@ class LoBotCompat(BaseRequestMiddleware):
         if method.__api_method__ == "sendChatAction" and bot.session in self._silent_sessions:
             return True
         method = self._adapt(bot, method)
+        if (
+            isinstance(method, SendAudio)
+            and isinstance(method.audio, InputFile)
+            and CONTRACT["features"]["audioUploads"]["supported"] is False
+        ):
+            # The contract rejects uploads before sending; no failed request or replay is needed.
+            method = self._document(method, method.audio)
         try:
             return await self._attempt(make_request, bot, method)
         except TelegramBadRequest as error:
@@ -105,14 +112,7 @@ class LoBotCompat(BaseRequestMiddleware):
                 and getattr(error, "lo_reason", None) == "feature_disabled"
                 and getattr(error, "lo_parameter", None) == "video"
             ):
-                self._notice("sendVideo", "document_fallback")
-                data = {
-                    key: getattr(method, key)
-                    for key in CONTRACT["methods"]["sendDocument"]["parameters"]
-                    if hasattr(method, key)
-                }
-                data["document"] = method.video
-                return await self._attempt(make_request, bot, SendDocument(**data))
+                return await self._attempt(make_request, bot, self._document(method, method.video))
             raise
         except TelegramServerError as error:
             if (
@@ -124,6 +124,16 @@ class LoBotCompat(BaseRequestMiddleware):
                 self._silent_sessions.add(bot.session)
                 return True
             raise
+
+    def _document(self, method, media):
+        self._notice(method.__api_method__, "document_fallback")
+        data = {
+            key: getattr(method, key)
+            for key in CONTRACT["methods"]["sendDocument"]["parameters"]
+            if hasattr(method, key)
+        }
+        data["document"] = media
+        return SendDocument(**data)
 
     def _album_parts(self, method):
         items = method.media
