@@ -69,7 +69,7 @@ Telegram and VK external adapters support SDK 0.23 as well as their existing
 0.19–0.22 ranges. The package gate runs strict installs, provider protocol tests,
 SSR imports and NodeNext/Bundler type checks at each published minor floor:
 Telegram 0.19.2, VK 0.19.0, and both 0.20.1, 0.21.0, 0.22.0 and 0.23.0.
-Telegram uses shared translator 0.20.5; VK uses official Bridge 3.0.2. This tests
+Telegram uses shared translator 0.20.6; VK uses official Bridge 3.0.2. This tests
 the adapter contracts with controlled hosts, not live provider authentication or
 device behavior.
 

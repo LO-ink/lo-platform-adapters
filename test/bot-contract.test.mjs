@@ -23,7 +23,13 @@ test("published transports and Python packages share the generated server contra
     "height",
     "thumbnail",
   ]);
-  assert.equal(contract.methods.sendChatAction.status, 501);
+  assert.equal(contract.methods.sendChatAction.implemented, true);
+  assert.ok(
+    contract.methods.sendMessage.parameters.includes("reply_parameters"),
+  );
+  assert.ok(
+    contract.methods.sendMediaGroup.parameters.includes("disable_notification"),
+  );
   assert.deepEqual(contract.inputMedia.types, ["photo", "document"]);
   assert.equal(contract.limits.textUtf16, 4096);
 });

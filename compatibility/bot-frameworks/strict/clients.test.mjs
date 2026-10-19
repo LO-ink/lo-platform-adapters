@@ -63,6 +63,19 @@ for (const framework of ["Telegraf", "grammY"]) {
         : new InputFile(bytes, name);
     assert.equal((await api.getMe()).can_read_all_group_messages, false);
     assert.equal((await api.sendMessage(42, "LO fixture")).text, "LO fixture");
+    assert.equal(await api.sendChatAction(42, "typing"), true);
+    assert.equal(
+      (
+        await api.sendMessage(42, "Reply", {
+          disable_notification: true,
+          reply_parameters: {
+            message_id: 1,
+            allow_sending_without_reply: true,
+          },
+        })
+      ).text,
+      "Reply",
+    );
     const photo = await api.sendPhoto(42, upload("photo.png"));
     assert.ok(photo.photo[0].file_id);
     const video = await api.sendVideo(42, upload("video.mp4"), {
@@ -88,8 +101,7 @@ for (const framework of ["Telegraf", "grammY"]) {
     );
     for (const [call, code] of [
       [
-        () =>
-          api.sendMessage(42, "Unsupported", { disable_notification: true }),
+        () => api.sendMessage(42, "Unsupported", { protect_content: true }),
         400,
       ],
       [() => api.sendVideo(42, video.video.file_id, { duration: 1 }), 400],
@@ -101,7 +113,7 @@ for (const framework of ["Telegraf", "grammY"]) {
           ]),
         400,
       ],
-      [() => api.sendChatAction(42, "typing"), 501],
+      [() => api.sendChatAction(42, "invalid_action"), 400],
     ])
       await assert.rejects(
         call,

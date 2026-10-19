@@ -16,6 +16,41 @@ function client(webApp) {
   );
 }
 
+test("WebApp links never send a boolean as a Telegram browser identifier", async () => {
+  const wire = [];
+  const sdk = client({
+    capabilities: ["openLink"],
+    openLink(url, options) {
+      assert.equal(this.initData, "signed");
+      // Telegram forwards truthy try_browser unchanged; the native wire requires
+      // a string identifier: https://core.telegram.org/api/web-events#web-app-open-link
+      const payload = { url };
+      if (options.try_instant_view) payload.try_instant_view = true;
+      if (options.try_browser) payload.try_browser = options.try_browser;
+      if (payload.try_browser !== undefined)
+        assert.equal(typeof payload.try_browser, "string");
+      wire.push(payload);
+    },
+  });
+  try {
+    for (const externalBrowser of [undefined, false, true])
+      await sdk.call("openLink", {
+        url: "https://example.com/",
+        instantView: true,
+        externalBrowser,
+      });
+    assert.deepEqual(
+      wire,
+      Array.from({ length: 3 }, () => ({
+        url: "https://example.com/",
+        try_instant_view: true,
+      })),
+    );
+  } finally {
+    sdk.dispose();
+  }
+});
+
 test("WebApp downloads preserve denial and reject malformed host results", async () => {
   let result = false;
   const received = [];

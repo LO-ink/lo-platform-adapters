@@ -665,12 +665,16 @@
     "sendAudio": {
       "implemented": true,
       "parameters": [
+        "allow_sending_without_reply",
         "audio",
         "caption",
         "caption_entities",
         "chat_id",
+        "disable_notification",
         "parse_mode",
-        "reply_markup"
+        "reply_markup",
+        "reply_parameters",
+        "reply_to_message_id"
       ],
       "quota": "KindSend"
     },
@@ -688,9 +692,9 @@
       "quota": "KindSend"
     },
     "sendChatAction": {
-      "implemented": false,
-      "parameters": [],
-      "status": 501
+      "implemented": true,
+      "parameters": ["action", "chat_id"],
+      "quota": "KindRead"
     },
     "sendChecklist": {
       "implemented": false,
@@ -700,11 +704,15 @@
     "sendContact": {
       "implemented": true,
       "parameters": [
+        "allow_sending_without_reply",
         "chat_id",
+        "disable_notification",
         "first_name",
         "last_name",
         "phone_number",
         "reply_markup",
+        "reply_parameters",
+        "reply_to_message_id",
         "vcard"
       ],
       "quota": "KindSend"
@@ -717,12 +725,16 @@
     "sendDocument": {
       "implemented": true,
       "parameters": [
+        "allow_sending_without_reply",
         "caption",
         "caption_entities",
         "chat_id",
+        "disable_notification",
         "document",
         "parse_mode",
-        "reply_markup"
+        "reply_markup",
+        "reply_parameters",
+        "reply_to_message_id"
       ],
       "quota": "KindSend"
     },
@@ -753,16 +765,27 @@
     },
     "sendMediaGroup": {
       "implemented": true,
-      "parameters": ["chat_id", "media"],
+      "parameters": [
+        "allow_sending_without_reply",
+        "chat_id",
+        "disable_notification",
+        "media",
+        "reply_parameters",
+        "reply_to_message_id"
+      ],
       "quota": "KindSend"
     },
     "sendMessage": {
       "implemented": true,
       "parameters": [
+        "allow_sending_without_reply",
         "chat_id",
+        "disable_notification",
         "entities",
         "parse_mode",
         "reply_markup",
+        "reply_parameters",
+        "reply_to_message_id",
         "text"
       ],
       "quota": "KindSend",
@@ -797,12 +820,16 @@
     "sendPhoto": {
       "implemented": true,
       "parameters": [
+        "allow_sending_without_reply",
         "caption",
         "caption_entities",
         "chat_id",
+        "disable_notification",
         "parse_mode",
         "photo",
-        "reply_markup"
+        "reply_markup",
+        "reply_parameters",
+        "reply_to_message_id"
       ],
       "quota": "KindSend"
     },
@@ -824,13 +851,17 @@
     "sendVideo": {
       "implemented": true,
       "parameters": [
+        "allow_sending_without_reply",
         "caption",
         "caption_entities",
         "chat_id",
+        "disable_notification",
         "duration",
         "height",
         "parse_mode",
         "reply_markup",
+        "reply_parameters",
+        "reply_to_message_id",
         "supports_streaming",
         "thumbnail",
         "video",
@@ -846,7 +877,15 @@
     },
     "sendVoice": {
       "implemented": true,
-      "parameters": ["chat_id", "reply_markup", "voice"],
+      "parameters": [
+        "allow_sending_without_reply",
+        "chat_id",
+        "disable_notification",
+        "reply_markup",
+        "reply_parameters",
+        "reply_to_message_id",
+        "voice"
+      ],
       "quota": "KindSend"
     },
     "setBusinessAccountBio": {

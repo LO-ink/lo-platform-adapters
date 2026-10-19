@@ -19,7 +19,7 @@ Telegram method, update type, keyboard or payment flow available in LO. Audit
 the methods used by the application and compare them with the deployed
 service's support before switching production traffic.
 
-For aiogram, use the [LO session and middleware](../python/lo-aiogram/README.md). Direct root replacement alone does not remove unsupported request fields or upload-only metadata; it is insufficient for unchanged handlers such as `message.reply`.
+For aiogram, use the [LO session and middleware](../python/lo-aiogram/README.md). Direct root replacement alone does not remove unsupported request fields or upload-only metadata; strict sessions now accept ordinary `message.reply` and silent-send fields, while handlers using unsupported fields still need explicit adaptation.
 
 The [JavaScript library suite](https://github.com/lo-ink/lo-platform-adapters/tree/main/compatibility/bot-frameworks)
 records the tested versions and configuration. The [Python suite](https://github.com/lo-ink/lo-platform-adapters/tree/main/compatibility/aiogram)

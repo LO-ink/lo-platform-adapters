@@ -10,6 +10,32 @@ from urllib.parse import urlsplit
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
 KINDS = {"message", "callback_query", "inline_query"}
+# Delivery filters accept the server vocabulary, including kinds this fixture cannot enqueue.
+ALLOWED_UPDATE_TYPES = {
+    "message",
+    "edited_message",
+    "channel_post",
+    "edited_channel_post",
+    "business_connection",
+    "business_message",
+    "edited_business_message",
+    "deleted_business_messages",
+    "message_reaction",
+    "message_reaction_count",
+    "inline_query",
+    "chosen_inline_result",
+    "callback_query",
+    "shipping_query",
+    "pre_checkout_query",
+    "purchased_paid_media",
+    "poll",
+    "poll_answer",
+    "my_chat_member",
+    "chat_member",
+    "chat_join_request",
+    "chat_boost",
+    "removed_chat_boost",
+}
 
 
 class UpdateError(Exception):
@@ -50,9 +76,7 @@ def allowed_updates(value):
     if (
         not isinstance(value, list)
         or len(value) > 100
-        or any(
-            not isinstance(kind, str) or not kind.isidentifier() or len(kind) > 64 for kind in value
-        )
+        or any(not isinstance(kind, str) or kind not in ALLOWED_UPDATE_TYPES for kind in value)
     ):
         raise UpdateError("Invalid allowed_updates")
     return value.copy()
@@ -97,7 +121,7 @@ class UpdateQueues:
         await self.deliver(token)
         return identity
 
-    async def poll(self, token, fields):
+    async def poll(self, token, fields, *, disconnected=None):
         state = self._state(token)
         limit = integer(fields.get("limit", 100), 1, 100)
         timeout = integer(fields.get("timeout", 0), 0, 50)
@@ -113,6 +137,8 @@ class UpdateQueues:
                 raise UpdateError("Conflict: another getUpdates request is active", 409)
             state.polling = True
             try:
+                if disconnected is not None and disconnected():
+                    raise asyncio.CancelledError
                 if selected is not None:
                     state.allowed = selected
                 if offset < 0:
@@ -120,6 +146,8 @@ class UpdateQueues:
                 elif offset:
                     state.updates = [item for item in state.updates if item["update_id"] >= offset]
                 while True:
+                    if disconnected is not None and disconnected():
+                        raise asyncio.CancelledError
                     if state.url:
                         raise UpdateError("Conflict: webhook is active", 409)
                     results = [
@@ -133,15 +161,18 @@ class UpdateQueues:
                     if remaining <= 0:
                         return []
                     try:
-                        await asyncio.wait_for(state.condition.wait(), remaining)
+                        await asyncio.wait_for(
+                            state.condition.wait(),
+                            min(remaining, 0.1) if disconnected is not None else remaining,
+                        )
                     except TimeoutError:
-                        return []
+                        continue
             finally:
                 state.polling = False
 
     async def set_webhook(self, token, fields):
         state = self._state(token)
-        url = fields.get("url")
+        url = fields.get("url", "")
         if not isinstance(url, str):
             raise UpdateError("Invalid webhook URL")
         parsed = urlsplit(url)
@@ -170,6 +201,8 @@ class UpdateQueues:
         selected = (
             allowed_updates(fields["allowed_updates"]) if "allowed_updates" in fields else None
         )
+        if "max_connections" in fields:
+            integer(fields["max_connections"], 1, 100)
         drop = fields.get("drop_pending_updates", False)
         if type(drop) is not bool and drop not in ("true", "false"):
             raise UpdateError("Invalid drop_pending_updates")

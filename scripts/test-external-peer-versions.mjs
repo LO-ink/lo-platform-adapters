@@ -24,7 +24,7 @@ const manifests = Object.fromEntries(
 );
 try {
   const archives = {};
-  for (const name of ["telegram", "telegram-to-lo", "vk"]) {
+  for (const name of ["compat", "telegram", "telegram-to-lo", "vk"]) {
     const manifest = manifests[name];
     npm([
       "pack",
@@ -65,6 +65,7 @@ try {
           join(temp, "cache"),
           `@lo-ink/miniapp-sdk@${version}`,
           archives[name],
+          ...(name === "telegram" ? [archives.compat] : []),
           ...(name === "vk" ? ["@vkontakte/vk-bridge@3.0.2"] : []),
         ],
         consumer,

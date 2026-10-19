@@ -197,7 +197,7 @@ def main():
         check(
             result["id"] == 7
             and result["is_bot"] is True
-            and result["capabilities"]["chat_actions"] is False,
+            and result["capabilities"]["chat_actions"] is True,
             "Synthetic identity/capabilities mismatch",
         )
         status, invalid = post(
@@ -211,7 +211,9 @@ def main():
             and invalid.get("parameters", {}).get("parameter") == "unsupported_smoke_field",
             "Unknown parameters must be refused",
         )
-        status, stub = post("sendChatAction", {"chat_id": 7, "action": "typing"})
+        status, action = post("sendChatAction", {"chat_id": 7, "action": "typing"})
+        check(status == 200 and action.get("result") is True, "Chat action must succeed")
+        status, stub = post("close", {})
         check(
             status == 501 and stub.get("ok") is False and stub.get("error_code") == 501,
             "Stubbed methods must be refused",
@@ -244,6 +246,7 @@ def main():
                         "synthetic-identity",
                         "invalid-parameter-400",
                         "stub-501",
+                        "chat-action-200",
                         "non-root",
                         "installed-version",
                         "real-aiogram-polling-reply",

@@ -69,6 +69,17 @@ class LoBotCompat(BaseRequestMiddleware):
                 changes[key] = None
                 if not isinstance(value, Default) or getattr(bot.default, value.name) is not None:
                     self._notice(name, key if key in type(method).model_fields else "extra_field")
+        reply = getattr(method, "reply_parameters", None)
+        if (
+            "reply_parameters" in allowed
+            and reply is not None
+            and reply.quote is None
+            and isinstance(reply.quote_parse_mode, Default)
+        ):
+            # A global text parse mode has no quote to format in an ordinary reply.
+            changes["reply_parameters"] = reply.model_copy(update={"quote_parse_mode": None})
+            if getattr(bot.default, reply.quote_parse_mode.name) is not None:
+                self._notice(name, "reply_parameters.quote_parse_mode")
         media = getattr(method, name[4:].lower(), None) if name.startswith("send") else None
         if isinstance(media, str) and not media.startswith("attach://"):
             for key in definition.get("uploadOnly", []):
@@ -137,6 +148,11 @@ class LoBotCompat(BaseRequestMiddleware):
 
     def _album_parts(self, method):
         items = method.media
+        options = {
+            key: getattr(method, key)
+            for key in CONTRACT["methods"]["sendMediaGroup"]["parameters"]
+            if key != "media" and hasattr(method, key)
+        }
         if (
             not CONTRACT["inputMedia"]["minItems"]
             <= len(items)
@@ -171,7 +187,7 @@ class LoBotCompat(BaseRequestMiddleware):
                                     key if key in type(item).model_fields else "extra_field",
                                 )
                     clean.append(item.model_copy(update=changes))
-                parts.append(SendMediaGroup(chat_id=method.chat_id, media=clean))
+                parts.append(SendMediaGroup(**options, media=clean))
             else:
                 item = group[0]
                 constructor = {"photo": SendPhoto, "video": SendVideo, "document": SendDocument}[
@@ -188,7 +204,7 @@ class LoBotCompat(BaseRequestMiddleware):
                             key if key in type(item).model_fields else "extra_field",
                         )
                 data = {key: getattr(item, key) for key in allowed if hasattr(item, key)}
-                data.update(chat_id=method.chat_id, **{item.type: item.media})
+                data.update(options, **{item.type: item.media})
                 parts.append(constructor(**data))
         return parts
 

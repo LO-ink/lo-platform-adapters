@@ -12,6 +12,12 @@ const adapter = await loadAdapter();
 
 Keyboard Mini Apps may opt into `createAdapter(scope, { allowEmptyLaunchData: true })` or the same `loadAdapter` option. This only enables host interaction; an empty payload never authenticates a user. Default discovery continues to require launch data.
 
+`openLink` uses Telegram's normal external-link behavior and forwards `instantView`.
+The portable `externalBrowser` boolean does not select a browser or force an
+in-app browser: all values leave that choice to Telegram. Browser selection is
+not exposed by this adapter; Telegram's `try_browser` requires a provider-specific
+string identifier, not a boolean.
+
 `adapter.telegram.supports(feature)` owns extension version/method checks. Extensions cover prepared chats, emoji status, internal links, home-screen shortcuts and vertical swipes. Home-screen installation prompts do not imply successful installation; use the status callback and optional notification. `verticalSwipesEnabled()` exposes the current state for reversible changes.
 
 ## SDK compatibility
