@@ -1,7 +1,8 @@
-"""Publish an already-tested image without replacing either release tag."""
+"""Publish a current tested image, retaining only verified same-image tags."""
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import re
@@ -29,12 +30,16 @@ def registry_json(url, headers):
     with response:
         status = response.status
         try:
-            body = json.load(response)
+            data = response.read()
+            body = json.loads(data)
         except (ValueError, UnicodeError):
             raise RuntimeError(
                 "Registry returned an unrecognized response (HTTP " + str(status) + ")"
             ) from None
-    return status, body
+        digest = response.headers.get("Docker-Content-Digest")
+        if digest is not None and digest != "sha256:" + hashlib.sha256(data).hexdigest():
+            raise RuntimeError("Registry manifest digest does not match response bytes")
+    return status, body, digest
 
 
 def registry_authorization(repository, insecure):
@@ -52,7 +57,7 @@ def registry_authorization(repository, insecure):
     query = urllib.parse.urlencode(
         {"service": "ghcr.io", "scope": "repository:lo-ink/lo-bot-api-emulator:pull"}
     )
-    status, body = registry_json(
+    status, body, _ = registry_json(
         "https://ghcr.io/token?" + query, {"Authorization": "Basic " + basic}
     )
     token = body.get("token") or body.get("access_token") if isinstance(body, dict) else None
@@ -61,10 +66,10 @@ def registry_authorization(repository, insecure):
     return "Bearer " + token
 
 
-def inspect_absent(repository, tag, authorization, insecure=False):
+def inspect_tag(repository, tag, authorization, image_id, insecure=False):
     registry, name = repository.split("/", 1)
     url = ("http://" if insecure else "https://") + registry + "/v2/" + name + "/manifests/" + tag
-    status, body = registry_json(
+    status, body, digest = registry_json(
         url,
         {
             "Authorization": authorization,
@@ -73,7 +78,32 @@ def inspect_absent(repository, tag, authorization, insecure=False):
     )
     reference = repository + ":" + tag
     if status == 200:
-        raise RuntimeError("Refusing to replace existing tag: " + reference)
+        media_type = body.get("mediaType") if isinstance(body, dict) else None
+        manifest = media_type in (
+            "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.docker.distribution.manifest.v2+json",
+        )
+        index = media_type in (
+            "application/vnd.oci.image.index.v1+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json",
+        )
+        # Classic Docker IDs are config digests; containerd can expose the
+        # complete manifest/index digest. Never infer an index from its children.
+        matches = digest == image_id or (
+            manifest
+            and isinstance(body.get("config"), dict)
+            and body["config"].get("digest") == image_id
+        )
+        if (
+            not isinstance(body, dict)
+            or body.get("schemaVersion") != 2
+            or not (manifest or index)
+            or not matches
+            or not isinstance(digest, str)
+            or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest)
+        ):
+            raise RuntimeError("Refusing an unverified or different existing tag: " + reference)
+        return digest
     errors = body.get("errors") if isinstance(body, dict) else None
     # The Docker CLI can collapse a real 401 into 'no such manifest'. Only the
     # authenticated registry's explicit missing-name/manifest 404 is absence.
@@ -90,6 +120,7 @@ def inspect_absent(repository, tag, authorization, insecure=False):
         raise RuntimeError(
             "Registry did not confirm tag absence (HTTP " + str(status) + "): " + reference
         )
+    return None
 
 
 def main():
@@ -102,10 +133,12 @@ def main():
     parser.add_argument("--check-only", action="store_true")
     parser.add_argument("--insecure-local-registry", action="store_true")
     args = parser.parse_args()
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version) or not re.fullmatch(
-        r"[0-9a-f]{40}", args.commit
+    if (
+        not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version)
+        or not re.fullmatch(r"[0-9a-f]{40}", args.commit)
+        or not re.fullmatch(r"sha256:[a-f0-9]{64}", args.image_id)
     ):
-        parser.error("Expected a stable version and full source commit")
+        parser.error("Expected an image ID, stable version and full source commit")
     if args.insecure_local_registry and not re.fullmatch(
         r"(?:localhost|127\.0\.0\.1):[0-9]+/[a-z0-9/-]+", args.repository
     ):
@@ -113,29 +146,61 @@ def main():
     tags = [args.version, "sha-" + args.commit]
     references = [args.repository + ":" + tag for tag in tags]
     authorization = registry_authorization(args.repository, args.insecure_local_registry)
-    for tag in tags:
-        inspect_absent(args.repository, tag, authorization, args.insecure_local_registry)
+    existing = [
+        inspect_tag(
+            args.repository, tag, authorization, args.image_id, args.insecure_local_registry
+        )
+        for tag in tags
+    ]
+    if len({digest for digest in existing if digest}) > 1:
+        raise RuntimeError("Existing release tags identify different manifests")
     if args.check_only:
-        print(json.dumps({"absent_tags": references}))
+        print(
+            json.dumps(
+                {
+                    "absent_tags": [
+                        ref for ref, digest in zip(references, existing, strict=True) if not digest
+                    ]
+                }
+            )
+        )
         return
     args.output.mkdir(parents=True, exist_ok=True)
     published = []
-    for reference in references:
-        subprocess.run(["docker", "tag", args.image_id, reference], check=True, timeout=60)
-        subprocess.run(["docker", "push", reference], check=True, timeout=300)
+    manifest_digests = {}
+    for reference, existing_digest in zip(references, existing, strict=True):
+        if not existing_digest:
+            subprocess.run(["docker", "tag", args.image_id, reference], check=True, timeout=60)
+            # Recheck for each write: main can advance after the first tag push.
+            subprocess.run(
+                ["node", str(Path(__file__).with_name("check-release-ci.mjs")), "--before-publish"],
+                cwd=Path(__file__).resolve().parents[1],
+                env={**os.environ, "RELEASE_SHA": args.commit},
+                check=True,
+                timeout=120,
+            )
+            subprocess.run(["docker", "push", reference], check=True, timeout=300)
         image = json.loads(
             subprocess.check_output(
                 ["docker", "image", "inspect", args.image_id], text=True, timeout=60
             )
         )[0]
-        digests = [
-            value
-            for value in image["RepoDigests"]
-            if value.startswith(args.repository + "@sha256:")
-        ]
+        if image["Id"] != args.image_id:
+            raise RuntimeError("Local image identity changed")
+        digests = (
+            [args.repository + "@" + existing_digest]
+            if existing_digest
+            else [
+                value
+                for value in image["RepoDigests"]
+                if value.startswith(args.repository + "@sha256:")
+            ]
+        )
         if len(digests) != 1:
             raise RuntimeError("Expected one pushed repository digest")
         published.append(reference)
+        manifest_digests[reference] = digests[0]
+        matching_manifests = len(set(manifest_digests.values())) == 1
         record = {
             "image": args.repository,
             "version": args.version,
@@ -144,7 +209,8 @@ def main():
             "digest_reference": digests[0],
             "platform": image["Os"] + "/" + image["Architecture"],
             "published_tags": published,
-            "completed": len(published) == len(references),
+            "manifest_digests": manifest_digests,
+            "completed": len(published) == len(references) and matching_manifests,
             "public_anonymous_pull_verified": False,
         }
         # Persist the first real push before attempting the second; a later error
@@ -153,6 +219,10 @@ def main():
         temporary = receipt.with_suffix(".tmp")
         temporary.write_text(json.dumps(record, indent=2) + "\n")
         temporary.replace(receipt)
+        if not matching_manifests:
+            raise RuntimeError(
+                "Published release tags identify different manifests; receipt retained"
+            )
 
 
 if __name__ == "__main__":

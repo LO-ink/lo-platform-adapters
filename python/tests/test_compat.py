@@ -6,6 +6,7 @@ from unittest.mock import patch
 from aiogram import Bot
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import (
+    ClientDecodeError,
     TelegramAPIError,
     TelegramBadRequest,
     TelegramNetworkError,
@@ -297,6 +298,53 @@ class Compat(Fixture):
 
 
 class RetryMetadata(unittest.IsolatedAsyncioTestCase):
+    async def test_compat_retries_only_an_explicit_false_envelope(self):
+        from lo_aiogram import LoAiohttpSession
+
+        session = LoAiohttpSession()
+        self.addAsyncCleanup(session.close)
+        bot = Bot(TOKEN, session=session)
+        for envelope in (
+            {},
+            *({"ok": value} for value in (True, None, 0, 1, "false", "true", False)),
+        ):
+            with self.subTest(envelope=envelope):
+                calls = []
+
+                async def request(bot, method, calls=calls, envelope=envelope):
+                    calls.append(method.__api_method__)
+                    if len(calls) > 1:
+                        return "retried"
+                    return session.check_response(
+                        bot,
+                        method,
+                        429,
+                        json.dumps(
+                            {
+                                **envelope,
+                                "error_code": 429,
+                                "description": "contradictory response",
+                                "parameters": {"retry_after": 1, "safe_to_retry": True},
+                                "result": {
+                                    "message_id": 1,
+                                    "date": 1,
+                                    "chat": {"id": 42, "type": "private"},
+                                    "text": "hello",
+                                },
+                            }
+                        ),
+                    ).result
+
+                with patch("lo_aiogram.compat.asyncio.sleep"):
+                    operation = LoBotCompat()(request, bot, SendMessage(chat_id=42, text="hello"))
+                    if envelope.get("ok") is False:
+                        self.assertEqual(await operation, "retried")
+                        self.assertEqual(calls, ["sendMessage", "sendMessage"])
+                    else:
+                        with self.assertRaises((TelegramAPIError, ClientDecodeError)):
+                            await operation
+                        self.assertEqual(calls, ["sendMessage"])
+
     async def test_safe_marker_requires_matching_http_and_envelope_codes(self):
         from lo_aiogram import LoAiohttpSession
 

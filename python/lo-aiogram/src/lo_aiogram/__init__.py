@@ -159,6 +159,7 @@ class LoAiohttpSession(AiohttpSession):
                     invalidate_capabilities(bot)
                 if (
                     status_code == 429
+                    and json.loads(content).get("ok") is False
                     and json.loads(content).get("error_code") == 429
                     and parameters.get("safe_to_retry") is True
                 ):

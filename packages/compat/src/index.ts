@@ -484,7 +484,12 @@ function execute(
             },
             done,
           ),
-        (buttonId) => (typeof buttonId === "string" ? buttonId : undefined),
+        (buttonId) => {
+          if (buttonId == null) return undefined;
+          if (typeof buttonId !== "string")
+            throw invalid("Invalid popup result");
+          return buttonId;
+        },
       );
     case "openLink":
       return command(webApp, "openLink", input.url, {
@@ -499,7 +504,7 @@ function execute(
         return unsupported(operation);
       return callback(
         (done) => invoke(webApp, "readTextFromClipboard", done),
-        (text) => (typeof text === "string" ? text : null),
+        strictOptionalString,
       );
     case "getLocation": {
       const manager = record(webApp.LocationManager);
@@ -547,10 +552,15 @@ function execute(
       return callback(
         (done) =>
           invoke(manager, "authenticate", { reason: input.reason }, done),
-        (authenticated, token) => ({
-          authenticated: authenticated === true,
-          ...(typeof token === "string" ? { token } : {}),
-        }),
+        (authenticated, token) => {
+          const result = strictBoolean(authenticated);
+          if (token != null && typeof token !== "string")
+            throw invalid("Invalid biometric token");
+          return {
+            authenticated: result,
+            ...(typeof token === "string" ? { token } : {}),
+          };
+        },
       );
     }
     case "updateBiometryToken":
@@ -847,12 +857,25 @@ function storage<T>(
   );
 }
 function normalizeLocation(input: unknown) {
+  if (input === null) return null;
   const value = record(input);
-  if (!value || typeof value !== "object") return null;
-  const nullable = (entry: unknown) =>
-    typeof entry === "number" ? entry : null;
-  if (typeof value.latitude !== "number" || typeof value.longitude !== "number")
-    return null;
+  if (
+    !value ||
+    Array.isArray(input) ||
+    typeof value.latitude !== "number" ||
+    !Number.isFinite(value.latitude) ||
+    Math.abs(value.latitude) > 90 ||
+    typeof value.longitude !== "number" ||
+    !Number.isFinite(value.longitude) ||
+    Math.abs(value.longitude) > 180
+  )
+    throw invalid("Invalid location response");
+  const nullable = (entry: unknown) => {
+    if (entry == null) return null;
+    if (typeof entry !== "number" || !Number.isFinite(entry))
+      throw invalid("Invalid location measurement");
+    return entry;
+  };
   return {
     latitude: value.latitude,
     longitude: value.longitude,

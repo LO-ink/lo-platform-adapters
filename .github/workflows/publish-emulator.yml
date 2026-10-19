@@ -93,9 +93,10 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Refuse existing tags and publish the tested image
+      - name: Verify release tags and publish the tested image
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           python scripts/publish-emulator-container.py \
             "$(cat release/image-id.txt)" ghcr.io/lo-ink/lo-bot-api-emulator \

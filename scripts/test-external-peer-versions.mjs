@@ -87,7 +87,11 @@ try {
       npm(["ls", "--all"], consumer);
       const suites =
         name === "telegram"
-          ? ["test/adapters.test.mjs", "test/webapp-contract.test.mjs"]
+          ? [
+              "test/adapters.test.mjs",
+              "test/webapp-contract.test.mjs",
+              "packages/compat/test/responses.test.mjs",
+            ]
           : name === "telegram-to-lo"
             ? ["packages/telegram-to-lo/test/compatibility.test.mjs"]
             : ["packages/vk/test/adapter.test.mjs"];
@@ -103,7 +107,11 @@ try {
           )
           .replaceAll(
             '"../dist/index.js"',
-            JSON.stringify(manifests[name].name),
+            JSON.stringify(
+              source.startsWith("packages/compat/")
+                ? manifests.compat.name
+                : manifests[name].name,
+            ),
           );
         const path = `protocol-${index}.test.mjs`;
         writeFileSync(join(consumer, path), suite);
