@@ -1,7 +1,7 @@
 # `@lo-ink/bot-http-lo`
 
-Compatibility exports for the HTTP transport in `@lo-ink/bot-sdk`. Version 0.9
-requires SDK `^0.7.0`; upgrade both packages together. New bots install only the
+Compatibility exports for the HTTP transport in `@lo-ink/bot-sdk`. Version 0.10
+requires SDK `^0.8.0`; upgrade both packages together. New bots install only the
 SDK and call `createLoBotClient`.
 
 Existing applications can keep their transport imports:
