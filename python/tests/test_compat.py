@@ -14,6 +14,8 @@ from aiogram.exceptions import (
 )
 from aiogram.methods import SendMediaGroup, SendMessage, SendPhoto, SendVideo
 from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     InputFile,
     InputMediaAudio,
     InputMediaDocument,
@@ -79,6 +81,40 @@ class Compat(Fixture):
         self.assertEqual(result.video.file_id, first.video.file_id)
         self.assertEqual(self.emulator.requests[-1]["files"], [])
         self.assertNotIn("duration", self.emulator.requests[-1]["fields"])
+
+    async def test_audio_upload_uses_document_before_any_refused_request(self):
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="Again", callback_data="again")]]
+        )
+        with patch.object(self.emulator, "validate", wraps=self.emulator.validate) as received:
+            result = await self.bot.send_audio(
+                42,
+                self.upload("sound.mp3"),
+                caption="Sound",
+                title="Title",
+                duration=2,
+                reply_markup=keyboard,
+                disable_notification=True,
+            )
+        fields = received.call_args.args[1]
+        self.assertIsNotNone(result.document)
+        self.assertIsNone(result.audio)
+        self.assertEqual(result.caption, "Sound")
+        self.assertEqual(json.loads(fields["reply_markup"]), keyboard.model_dump(exclude_none=True))
+        self.assertEqual([row["method"] for row in self.emulator.requests], ["sendDocument"])
+        self.assertTrue(all(row["status"] == 200 for row in self.emulator.requests))
+        self.assertNotIn("duration", self.emulator.requests[0]["fields"])
+        self.assertNotIn("title", self.emulator.requests[0]["fields"])
+
+    async def test_audio_cached_id_is_not_converted_and_one_shot_is_not_replayed(self):
+        self.emulator.assets["cached-audio"] = {"data": b"audio", "size": 5}
+        cached = await self.bot.send_audio(42, "cached-audio")
+        self.assertIsNotNone(cached.audio)
+        result = await self.bot.send_audio(42, OneShot(filename="sound.mp3"))
+        self.assertIsNotNone(result.document)
+        self.assertEqual(
+            [row["method"] for row in self.emulator.requests], ["sendAudio", "sendDocument"]
+        )
 
     async def test_feature_disabled_falls_back_once_and_preserves_caption_keyboard(self):
         self.emulator.video_uploads = False
