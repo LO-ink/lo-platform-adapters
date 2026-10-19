@@ -48,6 +48,7 @@ jobs:
           npm ci
           LO_STRICT_PYTHON=/tmp/lo-emulator-wheel-consumer/bin/python npm run test:strict
       - name: Build and exercise the exact image
+        id: image
         run: |
           mkdir -p release
           VERSION=$(python -c "import tomllib; print(tomllib.load(open('python/lo-bot-api-emulator/pyproject.toml', 'rb'))['project']['version'])")
@@ -59,6 +60,35 @@ jobs:
             --label "org.opencontainers.image.version=$VERSION" \
             python/lo-bot-api-emulator
           python scripts/check-emulator-container.py "$(cat release/image-id.txt)" --version "$VERSION" > release/container-smoke.json
+          echo "id=$(cat release/image-id.txt)" >> "$GITHUB_OUTPUT"
+      - name: Scan the tested image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        timeout-minutes: 5
+        env:
+          TRIVY_IMAGE_SRC: docker
+          TRIVY_IGNOREFILE: /dev/null
+          TRIVY_OFFLINE_SCAN: "true"
+        with:
+          version: v0.70.0
+          trivy-config: /dev/null
+          image-ref: ${{ steps.image.outputs.id }}
+          scanners: vuln
+          list-all-pkgs: "true"
+          format: json
+          output: release/trivy.json
+          exit-code: "0"
+          timeout: 3m
+      - name: Refuse vulnerabilities with available fixes
+        run: |
+          jq -e --arg image "$(cat release/image-id.txt)" '
+            .Metadata.ImageID == $image and
+            .Metadata.OS.Family == "debian" and
+            .Metadata.OS.EOSL != true and
+            (.Results | type == "array" and length > 0) and
+            any(.Results[]; .Class == "os-pkgs" and .Type == "debian" and (.Packages | type == "array" and length > 0)) and
+            any(.Results[]; .Class == "lang-pkgs" and .Type == "python-pkg" and (.Packages | type == "array" and length > 0)) and
+            ([.Results[].Vulnerabilities[]? | select((.FixedVersion // "") != "")] | length == 0)
+          ' release/trivy.json
       - name: Authenticate to GHCR
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
