@@ -224,11 +224,21 @@ def main():
                 container,
                 "python",
                 "-c",
-                "import os,json,importlib.metadata; print(json.dumps({'uid':os.getuid(),'version':importlib.metadata.version('lo-bot-api-emulator')}))",
+                "import os,json,importlib.metadata,importlib.util; "
+                "print(json.dumps({'uid':os.getuid(),"
+                "'version':importlib.metadata.version('lo-bot-api-emulator'),"
+                "'aiohttp':importlib.metadata.version('aiohttp'),"
+                "'installers':any(importlib.util.find_spec(name) is not None "
+                "for name in ('pip','ensurepip'))}))",
             )
         )
         check(runtime["uid"] == 10001, "Emulator must run as the dedicated non-root user")
         check(runtime["version"] == args.version, "Installed emulator version mismatch")
+        check(
+            (3, 14, 4) <= tuple(map(int, runtime["aiohttp"].split("."))) < (4,),
+            "Runtime aiohttp must be >=3.14.4,<4",
+        )
+        check(not runtime["installers"], "Package installers must not remain in the runtime image")
         check(
             json.loads(docker("inspect", container))[0]["State"]["Running"],
             "Container exited during smoke",
@@ -249,6 +259,8 @@ def main():
                         "chat-action-200",
                         "non-root",
                         "installed-version",
+                        "patched-aiohttp",
+                        "no-runtime-installers",
                         "real-aiogram-polling-reply",
                         "callback-and-keyboard-edit",
                         "disk-journal-cli-verdict",
