@@ -1,3 +1,5 @@
+import base64
+import csv
 import gzip
 import hashlib
 import importlib.util
@@ -18,23 +20,49 @@ plan = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(plan)
 
 
-def sample_distribution(filename, content=b"checked source", stamp=1700000000):
+def sample_distribution(
+    filename,
+    content=b"checked source",
+    stamp=1700000000,
+    generator="84.2.0",
+    mode=0o644,
+    wheel_version="1.0",
+    record_override=None,
+):
     stream = io.BytesIO()
     if filename.endswith(".whl"):
+        prefix = filename.removesuffix("-py3-none-any.whl") + ".dist-info/"
+        members = [
+            ("fixture/__init__.py", content),
+            (prefix + "METADATA", b"Name: fixture\nVersion: 0.1.0\n"),
+            (
+                prefix + "WHEEL",
+                (
+                    f"Wheel-Version: {wheel_version}\nGenerator: setuptools ({generator})\n"
+                    "Root-Is-Purelib: true\nTag: py3-none-any\n"
+                ).encode(),
+            ),
+        ]
+        record = io.StringIO(newline="")
+        writer = csv.writer(record)
+        for name, payload in members:
+            digest = (
+                base64.urlsafe_b64encode(hashlib.sha256(payload).digest()).rstrip(b"=").decode()
+            )
+            writer.writerow([name, "sha256=" + digest, len(payload)])
+        writer.writerow([prefix + "RECORD", "", ""])
+        members.append((prefix + "RECORD", (record_override or record.getvalue()).encode()))
         with zipfile.ZipFile(stream, "w") as archive:
-            for name, payload in [
-                ("fixture/__init__.py", content),
-                ("fixture.dist-info/METADATA", b"Name: fixture\nVersion: 0.1.0\n"),
-            ]:
+            for name, payload in members:
                 info = zipfile.ZipInfo(name, date_time=time.gmtime(stamp)[:6])
-                info.external_attr = 0o100644 << 16
+                info.external_attr = (0o100000 | mode) << 16
                 archive.writestr(info, payload)
     else:
         with gzip.GzipFile(fileobj=stream, mode="wb", mtime=stamp) as compressed:
             with tarfile.open(fileobj=compressed, mode="w") as archive:
                 for name, payload in [("fixture/__init__.py", content), ("README.md", b"guide")]:
                     info = tarfile.TarInfo("fixture-0.1.0/" + name)
-                    info.size, info.mtime = len(payload), stamp
+                    info.size, info.mtime, info.mode = len(payload), stamp, mode
                     archive.addfile(info, io.BytesIO(payload))
     return stream.getvalue()
 
@@ -299,6 +327,40 @@ class PythonReleasePlan(unittest.TestCase):
         self.assertEqual(
             plan.release_matrix(self.root, self.registry_request, build), {"include": []}
         )
+
+    def test_build_generator_and_read_permissions_do_not_require_a_new_version(self):
+        def build(root, project, directory):
+            for filename in plan.expected_files(project, "0.1.0"):
+                (directory / filename).write_bytes(
+                    sample_distribution(filename, generator="84.2.1", mode=0o600)
+                )
+
+        self.assertEqual(
+            plan.release_matrix(self.root, self.registry_request, build), {"include": []}
+        )
+
+    def test_wheel_metadata_and_executable_permission_changes_still_require_a_version(self):
+        for options in ({"wheel_version": "2.0"}, {"mode": 0o744}):
+            with self.subTest(options=options):
+
+                def build(root, project, directory, options=options):
+                    for filename in plan.expected_files(project, "0.1.0"):
+                        (directory / filename).write_bytes(sample_distribution(filename, **options))
+
+                with self.assertRaisesRegex(ValueError, "source differs.*bump"):
+                    plan.release_matrix(self.root, self.registry_request, build)
+
+    def test_invalid_wheel_record_does_not_bypass_source_comparison(self):
+        def build(root, project, directory):
+            for filename in plan.expected_files(project, "0.1.0"):
+                (directory / filename).write_bytes(
+                    sample_distribution(
+                        filename, record_override="fixture/__init__.py,sha256=wrong,14\r\n"
+                    )
+                )
+
+        with self.assertRaisesRegex(ValueError, "Invalid wheel RECORD"):
+            plan.release_matrix(self.root, self.registry_request, build)
 
     def test_complete_yanked_release_is_not_silently_skipped(self):
         def request(url, **kwargs):
