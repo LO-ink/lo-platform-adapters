@@ -175,7 +175,11 @@ class UpdateQueues:
         url = fields.get("url", "")
         if not isinstance(url, str):
             raise UpdateError("Invalid webhook URL")
-        parsed = urlsplit(url)
+        try:
+            parsed = urlsplit(url)
+            _ = parsed.port
+        except ValueError:
+            raise UpdateError("Invalid webhook URL") from None
         if url and (
             url.strip() != url
             or not parsed.hostname

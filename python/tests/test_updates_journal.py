@@ -138,6 +138,19 @@ class Updates(Fixture):
             await self.bot.set_webhook("https://example.invalid/hook", max_connections=100)
         )
 
+    async def test_malformed_webhook_url_is_refused_without_changing_webhook(self):
+        await self.bot.set_webhook("https://example.invalid/hook")
+        for url in (
+            "https://[bad/hook",
+            "https://example.invalid:bad/hook",
+            "https://example.invalid:99999/hook",
+        ):
+            with self.subTest(url=url), self.assertRaises(TelegramBadRequest):
+                await self.bot.set_webhook(url)
+            self.assertEqual(
+                (await self.bot.get_webhook_info()).url, "https://example.invalid/hook"
+            )
+
     async def test_real_polling_bot_answers_start_and_button_and_inline_without_400(self):
         self.bot.session.middleware(LoBotCompat())
         dispatcher, received = Dispatcher(), asyncio.Event()
