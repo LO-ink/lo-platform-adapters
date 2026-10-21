@@ -1,5 +1,7 @@
 """Select unpublished Python versions; registry failures must stop a release."""
 
+import base64
+import csv
 import hashlib
 import json
 import os
@@ -11,7 +13,7 @@ import tempfile
 import time
 import tomllib
 import zipfile
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import unquote, urlsplit
@@ -95,6 +97,42 @@ def packaged_files(data, filename):
     return entries
 
 
+def comparable_files(data, filename):
+    files = packaged_files(data, filename)
+    if filename.endswith(".whl"):
+        prefix = filename.removesuffix("-py3-none-any.whl") + ".dist-info/"
+        wheel_path, record_path = prefix + "WHEEL", prefix + "RECORD"
+        wheel, record = files[wheel_path][0], files[record_path][0]
+        rows = list(csv.reader(StringIO(record.decode("utf-8"), newline="")))
+        seen = set()
+        for row in rows:
+            if len(row) != 3 or row[0] in seen or row[0] not in files:
+                raise ValueError("Invalid wheel RECORD")
+            seen.add(row[0])
+            if row[0] == record_path:
+                if row[1:] != ["", ""]:
+                    raise ValueError("Invalid wheel RECORD")
+                continue
+            contents = files[row[0]][0]
+            digest = (
+                base64.urlsafe_b64encode(hashlib.sha256(contents).digest()).rstrip(b"=").decode()
+            )
+            if row[1:] != ["sha256=" + digest, str(len(contents))]:
+                raise ValueError("Invalid wheel RECORD")
+        if seen != set(files):
+            raise ValueError("Invalid wheel RECORD")
+        lines = wheel.splitlines(keepends=True)
+        if sum(line.startswith(b"Generator: ") for line in lines) != 1:
+            raise ValueError("Invalid wheel generator")
+        normalized = b"".join(
+            b"Generator: normalized\n" if line.startswith(b"Generator: ") else line
+            for line in lines
+        )
+        files[wheel_path] = (normalized, files[wheel_path][1])
+        files[record_path] = (b"", files[record_path][1])
+    return {name: (contents, mode & ~0o044) for name, (contents, mode) in files.items()}
+
+
 def build_distributions(root, project, directory):
     subprocess.run(
         [sys.executable, "-m", "build", "--outdir", str(directory), str(root / "python" / project)],
@@ -168,7 +206,7 @@ def release_matrix(root, request=urlopen, build=build_distributions):
                     raise ValueError("Built distributions do not match the release project")
                 for filename, metadata in published.items():
                     public = distribution_bytes(metadata, filename, request)
-                    if packaged_files(public, filename) != packaged_files(
+                    if comparable_files(public, filename) != comparable_files(
                         files[filename].read_bytes(), filename
                     ):
                         raise ValueError(
