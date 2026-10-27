@@ -1,7 +1,7 @@
 # `@lo-ink/adapter-lo`
 
 Compatibility exports for the native `@lo-ink/miniapp-sdk` transport, supporting
-SDK `^0.22.2 || ^0.23.0`. New LO applications use the SDK directly:
+SDK `^0.22.2 || ^0.23.0 || ^0.27.0`. New LO applications use the SDK directly:
 
 ```ts
 import { createLoClient } from "@lo-ink/miniapp-sdk";

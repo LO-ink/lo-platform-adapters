@@ -4,7 +4,7 @@ import {
   installTelegramCompatibility as install,
   COMPATIBILITY_LIMITS,
 } from "../dist/index.js";
-import { MINI_APP_CAPABILITIES } from "@lo-ink/miniapp-sdk";
+import { createLoClient, MINI_APP_CAPABILITIES } from "@lo-ink/miniapp-sdk";
 const owned = new Set();
 const installTelegramCompatibility = (...args) => {
   const result = install(...args);
@@ -385,9 +385,28 @@ test("buttons preserve chaining and mapped parameters", async () => {
   await a.dispose();
 });
 test("snapshot/event mapping does not invent expansion, stability or versions", async () => {
-  const h = host(),
+  const h = host({
+      operations: [
+        ...operations,
+        "setScreenOrientation",
+        "composePublication",
+        "getPublicationProof",
+        "requestContactsProof",
+      ],
+    }),
     a = h.lease(),
     w = a.webApp;
+  if (MINI_APP_CAPABILITIES.includes("screenOrientation")) {
+    const native = createLoClient(h.scope);
+    assert.ok(native);
+    for (const capability of [
+      "screenOrientation",
+      "publicationSharing",
+      "requestContactsProof",
+    ])
+      assert.ok(native.adapter.capabilities.has(capability));
+    native.dispose();
+  }
   assert.equal(w.colorScheme, "dark");
   assert.deepEqual(w.themeParams, {
     bg_color: "#010203",
@@ -435,7 +454,13 @@ test("snapshot/event mapping does not invent expansion, stability or versions", 
     () => w.openLink("https://example.com", { try_browser: "chrome" }),
     { code: "unsupported" },
   );
-  assert.ok(!w.capabilities.includes("sensors"));
+  for (const capability of [
+    "sensors",
+    "screenOrientation",
+    "publicationSharing",
+    "requestContactsProof",
+  ])
+    assert.ok(!w.capabilities.includes(capability));
   assert.throws(() => w.openInvoice("https://example.com/invoice"), {
     code: "unsupported",
   });

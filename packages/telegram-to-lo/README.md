@@ -4,7 +4,7 @@ Explicit inbound translation for selected Telegram WebApp calls on LO's canonica
 native transport. New LO applications use `createLoClient` from
 `@lo-ink/miniapp-sdk` directly and do not install this facade.
 
-**Breaking change from 0.1.x.** This version requires Mini App SDK `^0.23.0` and
+**Breaking change from 0.1.x.** This version requires Mini App SDK `^0.23.0 || ^0.27.0` and
 `LO.MiniAppNative`. It never reads `LO.WebApp` or loads a host script. Version 0.1.x
 aliased the host's entire compatibility object; 0.2 implements the documented
 subset below. Audit existing calls before upgrading. The old package remains a

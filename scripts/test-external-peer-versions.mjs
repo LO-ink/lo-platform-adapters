@@ -41,9 +41,9 @@ try {
   }
   // 0.20.1 is the first published 0.20 SDK; 0.20.0 does not exist.
   const rows = [
-    ["telegram", ["0.19.2", "0.20.1", "0.21.0", "0.22.0", "0.23.0"]],
-    ["telegram-to-lo", ["0.23.0", "0.23.1"]],
-    ["vk", ["0.19.0", "0.20.1", "0.21.0", "0.22.0", "0.23.0"]],
+    ["telegram", ["0.19.2", "0.20.1", "0.21.0", "0.22.0", "0.23.0", "0.27.2"]],
+    ["telegram-to-lo", ["0.23.0", "0.23.1", "0.27.2"]],
+    ["vk", ["0.19.0", "0.20.1", "0.21.0", "0.22.0", "0.23.0", "0.27.2"]],
   ];
   for (const [name, versions] of rows) {
     for (const version of versions) {
@@ -188,8 +188,11 @@ ${name === "telegram-to-lo" ? "" : "if(adapter){const value:MiniAppAdapter=adapt
   assert.equal(rejected.error, undefined);
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /ERESOLVE/);
-  assert.match(rejected.stderr, /peer @lo-ink\/miniapp-sdk@"\^0\.23\.0"/);
-  console.log("Inbound 0.2 rejects unsupported SDK 0.22.3");
+  assert.match(
+    rejected.stderr,
+    /peer @lo-ink\/miniapp-sdk@"\^0\.23\.0 \|\| \^0\.27\.0"/,
+  );
+  console.log("Inbound facade rejects unsupported SDK 0.22.3");
 } finally {
   rmSync(temp, { recursive: true, force: true });
 }
