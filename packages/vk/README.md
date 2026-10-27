@@ -28,11 +28,11 @@ The adapter advertises only the complete `ready` capability. It normalizes the o
 
 ## SDK compatibility
 
-The adapter supports Mini App SDK `^0.19.0 || ^0.20.0 || ^0.21.0 || ^0.22.0 || ^0.23.0`.
+The adapter supports Mini App SDK `^0.19.0 || ^0.20.0 || ^0.21.0 || ^0.22.0 || ^0.23.0 || ^0.27.0`.
 Packed consumers are tested with strict peer resolution at 0.19.0, 0.20.1
-(the first published 0.20 release), 0.21.0, 0.22.0 and 0.23.0. Tests include
+(the first published 0.20 release), 0.21.0, 0.22.0, 0.23.0 and 0.27.2. Tests include
 provider protocol calls, cancellation, errors, SSR imports and both TypeScript
-module-resolution modes. Use Node.js 22.13 or newer with SDK 0.23.
+module-resolution modes. Use Node.js 22.13 or newer with SDK 0.23 and 0.27.
 
 This adapter is for the external provider host. New LO-native applications use
 `createLoClient` from `@lo-ink/miniapp-sdk` directly.

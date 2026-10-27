@@ -127,11 +127,17 @@ export function webAppCapabilities(
   webApp: LegacyWebApp,
 ): ReadonlySet<Capability> {
   const known = new Set<string>(MINI_APP_CAPABILITIES);
+  const nativeOnly = new Set<string>([
+    "screenOrientation",
+    "publicationSharing",
+    "requestContactsProof",
+  ]);
   return new Set(
     (webApp.capabilities ?? []).filter(
       (value): value is Capability =>
         typeof value === "string" &&
         known.has(value) &&
+        !nativeOnly.has(value) &&
         (value !== "verticalSwipes" ||
           (method(webApp, "enableVerticalSwipes") &&
             method(webApp, "disableVerticalSwipes"))),
@@ -754,6 +760,7 @@ function execute(
     case "secureStorageClear":
       return storage(webApp.SecureStorage, "clear", [], strictBoolean);
   }
+  return unsupported(operation);
 }
 
 function command(

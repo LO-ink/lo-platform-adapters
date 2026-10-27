@@ -297,7 +297,15 @@ export function createFacade(
       return Object.freeze(
         [...adapter.capabilities].filter(
           (value) =>
-            !["biometry", "sensors", "location", "qrScanner"].includes(value),
+            ![
+              "biometry",
+              "sensors",
+              "location",
+              "qrScanner",
+              "screenOrientation",
+              "publicationSharing",
+              "requestContactsProof",
+            ].includes(value),
         ),
       );
     },

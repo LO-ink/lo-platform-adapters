@@ -36,7 +36,7 @@ try {
       ),
     );
   }
-  for (const version of ["0.22.2", "0.22.3", "0.23.0"]) {
+  for (const version of ["0.22.2", "0.22.3", "0.23.0", "0.27.2"]) {
     const consumer = join(temp, version);
     mkdirSync(consumer);
     writeFileSync(
@@ -70,7 +70,7 @@ try {
         ),
       ),
     );
-    assert.equal(compatManifest.version, "0.20.7");
+    assert.equal(compatManifest.version, "0.20.8");
     const suite = readFileSync(
       join(root, "packages/lo/test/native.test.mjs"),
       "utf8",

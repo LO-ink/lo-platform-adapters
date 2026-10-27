@@ -6,6 +6,28 @@ import {
   webAppCapabilities,
 } from "../packages/compat/dist/index.js";
 
+test("WebApp adapters do not advertise native-only SDK capabilities", async () => {
+  const nativeOnly = [
+    "screenOrientation",
+    "publicationSharing",
+    "requestContactsProof",
+  ];
+  assert.deepEqual(
+    [...webAppCapabilities({ capabilities: ["ready", ...nativeOnly] })],
+    ["ready"],
+  );
+  const adapter = createWebAppAdapter("external", {}, new Set(nativeOnly));
+  for (const operation of [
+    "setScreenOrientation",
+    "composePublication",
+    "getPublicationProof",
+    "requestContactsProof",
+  ])
+    await assert.rejects(adapter.execute(operation, {}, {}), {
+      code: "unsupported",
+    });
+});
+
 function client(webApp) {
   return createMiniAppClient(
     createWebAppAdapter(

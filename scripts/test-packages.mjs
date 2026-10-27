@@ -116,7 +116,7 @@ try {
       "--no-fund",
       "--cache",
       join(temp, "cache"),
-      "@lo-ink/miniapp-sdk@0.23.0",
+      archives[0],
       inboundArchive,
     ],
     inbound,
