@@ -124,6 +124,28 @@ test("dirty source cannot overwrite any public target, including with the retire
   });
 });
 
+test("uncommitted server contract cannot overwrite public targets", () => {
+  fixture(({ server, output, invoke }) => {
+    const contractPath = join(server, "bot-service/contract.json");
+    const contract = JSON.parse(readFileSync(contractPath, "utf8"));
+    contract.methods.getMe.status = 201;
+    writeFileSync(contractPath, JSON.stringify(contract));
+    for (const target of targets) {
+      const path = join(output, target);
+      mkdirSync(join(path, ".."), { recursive: true });
+      writeFileSync(path, "preserved public target\n");
+    }
+    const result = invoke();
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /committed server contract/);
+    for (const target of targets)
+      assert.equal(
+        readFileSync(join(output, target), "utf8"),
+        "preserved public target\n",
+      );
+  });
+});
+
 test("canonical source directory exports the same verified public contract", () => {
   fixture(({ source, output, payload, invokeFrom }) => {
     const canonicalSource = realpathSync(source);
