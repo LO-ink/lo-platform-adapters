@@ -48,6 +48,20 @@ if (gitRoot.status !== 0)
   throw new Error("Server source must be a Git checkout.");
 const root = gitRoot.stdout.trim();
 const servicePath = relative(root, service).split("\\").join("/");
+const contractPath = relative(root, resolve(service, "contract.json"))
+  .split("\\")
+  .join("/");
+const committedContract = spawnSync("git", ["show", `${sha}:${contractPath}`], {
+  cwd: service,
+  encoding: "utf8",
+});
+if (
+  committedContract.status !== 0 ||
+  canonical(JSON.parse(committedContract.stdout)) !== canonical(manifest)
+)
+  throw new Error(
+    "Extracted contract differs from the committed server contract.",
+  );
 const sourcePaths = spawnSync(
   "git",
   [
